@@ -16,28 +16,35 @@ public class ObsServer
 {
  public static void main(String[] args) throws IOException
   {boolean tracer = true;
-   ObsStatus os = new ObsStatus();
-   os.setTracer(tracer);
-
-   initializeVoltmeter();
-
-   ObsControl oc = new ObsControl(os,tracer);
    int defaultPortNum = 8080
 	,portNum = 0
 	;
-   if (args.length < 1)
-    {portNum = defaultPortNum;
-     System.out.println("Listening on port "+portNum);
-    }
-   else
-    {if (args.length != 1)
-      {System.err.println("Usage: java ObsServer <port number>");
-       System.exit(1);
+
+   for (String s1 : args)
+    {s1 = s1.toUpperCase();
+     switch (s1)
+      {case "TRACE" -> tracer=true;
+       case "TRUE"  -> tracer = true;
+       case "FALSE" -> tracer = false;
+       default      ->
+        {try {portNum = Integer.parseInt(s1);}
+	 catch (NumberFormatException e)
+          {System.out.println("  Unrecognized parameter (uppercased) ["+s1+"]");
+	  }
+        } // end default 
+      } // end switch
+     if (portNum == 0)
+      {portNum = defaultPortNum;
+       System.out.println("  No port supplied - using default "+portNum);
       }
-     else
-       portNum = Integer.parseInt(args[0]);
-    }
-        
+    } // end for
+
+
+   ObsStatus os = new ObsStatus();
+   os.setTracer(tracer);
+   ObsControl oc = new ObsControl(os,tracer);
+     initializeVoltmeter();
+       
    try (ServerSocket serverSocket = new ServerSocket(portNum))
     {while (true)
       {new ObsWorkerThread(serverSocket.accept(),oc,os).start();

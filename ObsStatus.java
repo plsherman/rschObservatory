@@ -4,7 +4,8 @@
   2016-03-22 PLS initial authoring
   2017-01-01 PLS add fetch for tracer
   2020-07-16 PLS add field for voltage - code to update and fetch
-  2026-06/09 PLS recode Runtime .exec for new java version
+  2026-06-09 PLS recode Runtime .exec for new java version
+  2026-06-13 PLS change computer2 to backupDrive, 
 
 
 */
@@ -26,7 +27,7 @@ public class ObsStatus extends Observable
 	,scope2PoweredUp = false		// 11
 	,scope3PoweredUp = false		// 12
 	,computer1PoweredUp = false		// 13
-	,computer2PoweredUp = false		// 14
+	,NASPoweredUp = false			// 14
 	,lightsOn = false			// 15
 	,scope3Parked = true			// 16
 	,scopesParkedPowerOn			// 17
@@ -66,7 +67,7 @@ public class ObsStatus extends Observable
 	case 11: scope2PoweredUp = newState;	break;
 	case 12: scope3PoweredUp = newState;	break;
 	case 13: computer1PoweredUp = newState; break;
-	case 14: computer2PoweredUp = newState; break;
+	case 14: NASPoweredUp = newState;	break;
 	case 15: lightsOn = newState;		break;
 	case 16: scope3Parked = newState;	break;
 	case 17: scopesParkedPowerOn= newState; break;
@@ -121,7 +122,7 @@ public class ObsStatus extends Observable
    if(computer1PoweredUp)	s = s+"1 ";
    else				s = s+"0 ";
 
-   if(computer2PoweredUp)	s = s+"1 ";
+   if(NASPoweredUp)		s = s+"1 ";
    else				s = s+"0 ";
 
    if(lightsOn)			s = s+"1 ";
@@ -182,8 +183,13 @@ public class ObsStatus extends Observable
    commonFunctions(b);
   }
  public void setComputer2PoweredUp(boolean b)
-  {if (tracer) System.out.println("OS.setComputer2PoweredUp("+b+")");
-   computer2PoweredUp = b;
+  {System.out.println("  Invalid invoke of setComputer2PoweredUp: processed");
+   System.out.println("    change offending code to setNASPoweredUp()");
+   setNASPoweredUp(b); 
+  }
+ public void setNASPoweredUp(boolean b)
+  {if (tracer) System.out.println("OS.set NASPoweredUp("+b+")");
+   NASPoweredUp = b;
    commonFunctions(b);
   }
  public void setRoofOpen(boolean b)
@@ -329,9 +335,14 @@ public class ObsStatus extends Observable
    {if (tracer) System.out.println("OS.getComputer1PoweredUp()");
     return computer1PoweredUp;
    }
-  public boolean getComputer2PoweredUp()
-   {if (tracer) System.out.println("OS.getComputer2PoweredUp()");
-    return computer2PoweredUp;
+  public boolean getComputer2PoweredUp()  // catches old invokes
+   {System.out.println("/nBad invoke of getComputer2PoweredUp(): processed");
+    System.out.println("  change offending code to getNASPoweredUp()");
+    return getNASPoweredUp();
+   }
+  public boolean getNASPoweredUp()
+   {if (tracer) System.out.println("OS.getNASPoweredUp()");
+    return NASPoweredUp;
    }
   public boolean getLightsOn()
    {if (tracer) System.out.println("OS.getLightsOn()");

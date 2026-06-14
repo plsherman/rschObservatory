@@ -135,7 +135,7 @@ public class ObsWorkerThread extends Thread implements Observer
 	    oc.wakeUp("Abe");
 	    break;
 	  case 13:
-	    oc.togglePowerComputer2();
+	    oc.togglePowerNAS();
 	    break;
 	  case 14:
 	    oc.wakeUp("Phil");

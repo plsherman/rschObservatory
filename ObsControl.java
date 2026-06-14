@@ -6,7 +6,8 @@
  * pin header connection.
  * 
  * Disable SPI and I2C to use pins for I/O - blacklist 2 modules
-     /etc/modprobe.d/raspi-blacklist.conf
+   or use raspi-config to disable them
+     /etc/modprobe.d/raspi-blacklist.conf  // modules may change with pi4/5/6
 	i2c_bcm2708
 	spi_bcm2708
 
@@ -33,7 +34,7 @@
     18	close roof
     19	inverter power button
     20	computer power 1
-    21	computer power 2
+    21	NAS	 power
     22	scope 1  power 1 (Abe)
     23  scope 1  power 2 
     24	scope 2  on	 (Phil - latching power relay)
@@ -66,6 +67,8 @@
        ( note all code for above can be removed, now in ObsStatus)
   		 changes to stop roof - look at parked???
   2020/07/21 PLS add to updateStatus() invocation of voltage update
+  2026/06/10 PLS Updates for pi4j2 and Java 21
+		 Java updates not done for deprecated "observable"
 **********************************************************************
  * 
  * 
@@ -76,27 +79,20 @@
 
 //   following imports needed to use raw IO pins on header
 
-//import com.pi4j.io.gpio.GpioController;
-//import com.pi4j.io.gpio.GpioFactory;
-//import com.pi4j.io.gpio.GpioPinDigitalInput;
-//import com.pi4j.io.gpio.GpioPinDigitalOutput;
-//import com.pi4j.io.gpio.PinPullResistance;
-//import com.pi4j.io.gpio.PinState;
-//import com.pi4j.io.gpio.RaspiPin;
-//import com.pi4j.io.gpio.event.GpioPinDigitalStateChangeEvent;
-//import com.pi4j.io.gpio.event.GpioPinListenerDigital;
-
 import java.io.*;
-import com.pi4j.io.gpio.*;
-import com.pi4j.io.gpio.event.*;
+//import java.util.*;
+import com.pi4j.Pi4J;
+import com.pi4j.io.gpio.digital.*;
+import com.pi4j.context.Context;
+//import com.pi4j.io.gpio.event.*;
 
 //   PinPull values OFF, PULL_UP, PULL_DOWN
 //     use PULL_UP and eliminate need for divider resistor network
 
 public class ObsControl
 {
- static GpioController		gpio;
- static GpioPinDigitalOutput    
+ private static Context pi4j;
+ static DigitalOutput    
 			 oPin00		//open roof
                         ,oPin01		//close roof
 			,oPin02		//ethernet switches
@@ -111,7 +107,7 @@ public class ObsControl
 			,oPin22
 			;
 
-  static GpioPinDigitalInput
+  static DigitalInput
                          iPin08		//roof open
 			,iPin09		//roof closed
                         ,iPin10		
@@ -124,6 +120,7 @@ public class ObsControl
                         ,iPin26		//scope 2 parked
                         ,iPin11		//scope 1 parked
 			;
+
 /* Available pins
 			, pin10
 			, pin15
@@ -131,8 +128,8 @@ public class ObsControl
 			, pin25
 			, pin28
 			, pin29
+
 */
-  static GpioListener pinListener;
 
   private ObsStatus os;
   
@@ -164,9 +161,10 @@ public ObsControl(ObsStatus os1, boolean b)
 
 private void init()
 {if (tracer) System.out.println("OC.init()");
- if (System.getProperty("os.arch").equals("arm"))
+ if (System.getProperty("os.arch").equals("aarm64"))
   {runOnPi = true;
-   gpio = GpioFactory.getInstance(); // create controller
+//   gpio = GpioFactory.getInstance(); // create controller
+   pi4j = Pi4J.newAutoContext();
   }
  else
   {System.out.println("Not running on Pi");
@@ -183,58 +181,143 @@ private void init()
 }
 
 private void setupIOPins()
- {if (tracer) System.out.println("PiC.setupIOPins()");
-  pinListener = new GpioListener(this,os);
+ {if (tracer) System.out.println("OC.setupIOPins()");
+  var relayCntlHigh = DigitalOutput.newConfigBuilder(pi4j)
+	.initial(DigitalState.HIGH)
+	.shutdown(DigitalState.HIGH)
+//	.provider(mock)			// include to run on non-pi
+	;
+  var relayCntlLow = DigitalOutput.newConfigBuilder(pi4j)
+	.initial(DigitalState.LOW)
+	.shutdown(DigitalState.LOW)
+//	.provider(mock)			// include to run on non-pi
+	;
+
 // setup output pins  PinStates: LOW HIGH
-  oPin00  = gpio.provisionDigitalOutputPin
-		(RaspiPin.GPIO_00,"pin00",PinState.HIGH);
-  oPin00.setShutdownOptions(true, PinState.HIGH);
+// Pi pins control relays: low activates relay, high deactivates it
+// Ethernet needs always on ?relay control wire moved to NC relay connection or disconnected?
 
-  oPin01  = gpio.provisionDigitalOutputPin
-		(RaspiPin.GPIO_01,"pin01",PinState.HIGH);
-  oPin01.setShutdownOptions(true, PinState.HIGH);
+  oPin00 = pi4j.create(relayCntlHigh.bcm(0).id("pin00"));  //open roof
+  oPin01 = pi4j.create(relayCntlHigh.bcm(1).id("pin01"));  //close roof
+  oPin02 = pi4j.create(relayCntlLow.bcm(2).id("pin02"));   //ethernet switch 
+  oPin03 = pi4j.create(relayCntlHigh.bcm(3).id("pin03"));  //backup drive
+  oPin04 = pi4j.create(relayCntlHigh.bcm(4).id("pin04"));  //Abe scope power 1,2
+  oPin05 = pi4j.create(relayCntlHigh.bcm(5).id("pin05"));  //Abe scope camera (2 - disabled)
+  oPin06 = pi4j.create(relayCntlHigh.bcm(6).id("pin06"));  //power: scope safe sensors
+  oPin07 = pi4j.create(relayCntlHigh.bcm(7).id("pin07"));  //Phil scope power
+  oPin13 = pi4j.create(relayCntlHigh.bcm(13).id("pin13")); //Scope3 power
+  oPin14 = pi4j.create(relayCntlHigh.bcm(14).id("pin14")); //lights power
+  oPin21 = pi4j.create(relayCntlHigh.bcm(21).id("pin21")); //inverter power button
+  oPin22 = pi4j.create(relayCntlHigh.bcm(22).id("pin22")); //available - future use
 
-  oPin02  = gpio.provisionDigitalOutputPin
-		(RaspiPin.GPIO_02,"pin02",PinState.LOW);
-  oPin02.setShutdownOptions(true, PinState.LOW);
 
-  oPin03  = gpio.provisionDigitalOutputPin
-		(RaspiPin.GPIO_03,"pin03",PinState.HIGH);
-  oPin03.setShutdownOptions(true, PinState.HIGH);
 
-  oPin04  = gpio.provisionDigitalOutputPin
-		(RaspiPin.GPIO_04,"pin04",PinState.HIGH);
-  oPin04.setShutdownOptions(true, PinState.HIGH);
+  var inHigh = DigitalInput.newConfigBuilder(pi4j)
+	.pull(PullResistance.PULL_UP)
+	.debounce(50000L)
+//	.provider(mock)		// should allow running on non-pi hardware
+	;			
+  var inLow  = DigitalInput.newConfigBuilder(pi4j)
+	.pull(PullResistance.PULL_DOWN)
+	.debounce(50000L)
+//	.provider(mock)		// should allow running on non-pi hardware
+	;			
+  var inOff  = DigitalInput.newConfigBuilder(pi4j)
+	.pull(PullResistance.OFF)
+	.debounce(50000L)
+//	.provider(mock)		// should allow running on non-pi hardware
+	;
 
-  oPin05  = gpio.provisionDigitalOutputPin
-		(RaspiPin.GPIO_05,"pin05",PinState.HIGH);
-  oPin05.setShutdownOptions(true, PinState.HIGH);
+  iPin08  = pi4j.create(inHigh.bcm(8).id("iPin08"));  // roof open
+  iPin08.addListener
+   (e ->
+    {if (e.state() == DigitalState.LOW)
+       {stopRoof();
+        os.setRoofOpen(true);
+       }
+      else
+       {os.setRoofOpen(false);
+       }
+    }
+   );
+			
+  iPin09  = pi4j.create(inHigh.bcm(9).id("iPin09"));  //roof closed
+  iPin09.addListener
+   (e ->
+    {if (e.state() == DigitalState.LOW)
+       {stopRoof();
+        os.setRoofClosed(true);
+       }
+      else
+       {os.setRoofClosed(false);
+       }
+    }
+   );
 
-  oPin06  = gpio.provisionDigitalOutputPin
-		(RaspiPin.GPIO_06,"pin06",PinState.HIGH);
-  oPin06.setShutdownOptions(true, PinState.HIGH);
+  iPin11  = pi4j.create(inHigh.bcm(11).id("iPin11"));	//Abe scope parked
+  iPin11.addListener
+   (e ->
+    {if (e.state() == DigitalState.LOW)
+       {os.setScope1Parked(true);
+       }
+      else
+       {os.setScope1Parked(false);
+       }
+    }
+   );
 
-  oPin07  = gpio.provisionDigitalOutputPin
-		(RaspiPin.GPIO_07,"pin07",PinState.HIGH);
-  oPin07.setShutdownOptions(true, PinState.HIGH);
+  iPin23  = pi4j.create(inHigh.bcm(23).id("iPin23"));	//scope 3 parked
+  iPin23.addListener
+   (e ->
+    {if (e.state() == DigitalState.LOW)
+       {os.setScope3Parked(true);
+       }
+      else
+       {os.setScope3Parked(false);
+       }
+      os.setScope3Parked(true);					// not present: force true
+     }
+   );
+	
+  iPin26  = pi4j.create(inHigh.bcm(26).id("iPin26"));	//Phil scope parked
+  iPin26.addListener
+   (e ->
+    {if (!os.getRoofOpening() && !os.getRoofClosing()   // laser pointer sensor moves when
+				&& !os.getOverrideScopesParked()  // roof moving - sensor
+				&& os.getScopesParkedPowerOn())  // valid when these met
+      {if (e.state() == DigitalState.LOW)
+        {os.setScope2Parked(true);
+        }
+       else
+        {os.setScope2Parked(false);
+        }
+      }
+    }
+   );
 
-  oPin13  = gpio.provisionDigitalOutputPin
-		(RaspiPin.GPIO_13,"pin13",PinState.HIGH);
-  oPin13.setShutdownOptions(true, PinState.HIGH);
+  iPin27  = pi4j.create(inHigh.bcm(27).id("iPin27"));	//AC power on
+  iPin27.addListener
+   (e ->
+    {if (e.state() == DigitalState.LOW)
+       {os.setAcPowerAvailable(false);
+       }
+      else
+       {os.setAcPowerAvailable(true);
+       }
+    }
+   );
 
-  oPin14  = gpio.provisionDigitalOutputPin
-		(RaspiPin.GPIO_14,"pin14",PinState.HIGH);
-  oPin14.setShutdownOptions(true, PinState.HIGH);
-
-  oPin21  = gpio.provisionDigitalOutputPin
-		(RaspiPin.GPIO_21,"pin21",PinState.HIGH);
-  oPin21.setShutdownOptions(true, PinState.HIGH);
 /*
-  oPin22  = gpio.provisionDigitalOutputPin
-		(RaspiPin.GPIO_22,"pin22",PinState.HIGH);
-  oPin22.setShutdownOptions(true, PinState.HIGH);
+//  these pins don't have any hardware to activate them - not defined
+  iPin10  = pi4j.create(inHigh.bcm(10).id("iPin10"));			
+  iPin12  = pi4j.create(inHigh.bcm(12).id("iPin12"));	//computer 2 powered on
+  iPin22  = pi4j.create(inHigh.bcm(22).id("iPin22"));	//outside door open
+  iPin24  = pi4j.create(inHigh.bcm(24).id("iPin24"));	//computer 1 powered on
+  iPin25  = pi4j.create(inHigh.bcm(25).id("iPin25"));	//control room door open
+  iPin28  = pi4j.create(inHigh.bcm(28).id("iPin28"));			
 */
 
+/*	// pi4j1 code - remove
  // PinPull constants: OFF PULL_DOWN PULL_UP
   iPin08 = gpio.provisionDigitalInputPin
 		(RaspiPin.GPIO_08,"iPin08",PinPullResistance.OFF);
@@ -245,12 +328,12 @@ private void setupIOPins()
 		(RaspiPin.GPIO_09,"iPin09",PinPullResistance.OFF);
   iPin09.addListener(pinListener);
   iPin09.setDebounce(debounceDelay);
-/*
+
   iPin10 = gpio.provisionDigitalInputPin
 		(RaspiPin.GPIO_10,"iPin10",PinPullResistance.PULL_UP);
   iPin10.addListener(pinListener);
   iPin10.setDebounce(debounceDelay);
-*/
+
   iPin27 = gpio.provisionDigitalInputPin
 		(RaspiPin.GPIO_27,"iPin27",PinPullResistance.PULL_DOWN);
   iPin27.addListener(pinListener);
@@ -295,6 +378,7 @@ private void setupIOPins()
 //		(RaspiPin.GPIO_28,"iPin28",PinPullResistance.PULL_UP);
 //  iPin28.addListener(pinListener);
 //  iPin28.setDebounce(debounceDelay);
+*/
 
   refreshStatus();
 
@@ -366,10 +450,10 @@ public void refreshStatus()
     else if (oPin02.isHigh() & os.getComputer1PoweredUp())
       os.setComputer1PoweredUp(false);
 
-    if (oPin03.isLow() & !os.getComputer2PoweredUp())		// computer 2 power
-      os.setComputer2PoweredUp(true);
-    else if (oPin03.isHigh() & os.getScope2PoweredUp())
-      os.setComputer2PoweredUp(false);
+    if (oPin03.isLow() & !os.getNASPoweredUp())			// NAS power
+      os.setNASPoweredUp(true);
+    else if (oPin03.isHigh() & os.getNASPoweredUp())
+      os.setNASPoweredUp(false);
 
     if (iPin27.isLow()) os.setAcPowerAvailable(false);
     else		os.setAcPowerAvailable(true);
@@ -394,7 +478,7 @@ public void openRoof()	// 0
    {if (oPin06.isHigh())
       toggleScopesParkedPower();		// turn on power for parked sensors
     if (os.getScopesSafe() | os.getOverrideScopesParked())
-     {if (oPin01.isLow())		// roof is closing - stop first
+     {if (oPin01.isLow())			// roof is closing - stop first
        {stopRoof();
         try {Thread.sleep(roofStopDelay);}	// wait for roof to stop
         catch (InterruptedException e) {}
@@ -669,39 +753,27 @@ public void togglePowerComputer1()      // Ethernet switches
    //  can't determine if computers on so assume off (above)
  }
 
-public void togglePowerComputer2()
+/*
+public void togglePowerComputer2()	// catch classes needing updates
+ {System.out.println("OCtoggleComputerPower2() - invalid old method");
+  System.out.println("  change code to togglePowerNAS - processed anyway");
+  togglePowerNas();
+ }
+*/
+
+public void togglePowerNAS()
  {if (tracer) System.out.println("OC.toggleComputerPower2()");
   String command = "ping -c1 192.168.0.90 1>/dev/null";
   if (runOnPi)
-   {if (os.getComputer2PoweredUp())		// is powered up
+   {if (os.getNASPoweredUp())		// is powered up
       nas.shutNasDown();
-/*
-     {try
-       {Runtime rt = Runtime.getRuntime();
-        Process pr = rt.exec(command);		// ping tests if up
-        int returnCode = pr.waitFor();
-        if (returnCode == 0)			// is up - issue shutdown
-         {command = "nasShutdown";
-          pr = rt.exec(command);
-         }
-        else					// not up - can power off
-         {oPin03.toggle();
-          os.setComputer2PoweredUp(false);
-         }       
-       }
-      catch (Throwable e)
-       {System.out.println("NAS shutdown: "+command+" failed");
-        System.out.println(e);
-       }
-     }
-*/
     else					// is power off, power up
      {oPin03.toggle();
-      os.setComputer2PoweredUp(true);
+      os.setNASPoweredUp(true);
      }    
    }
   else						// not running on pi
-    os.setComputer2PoweredUp(!os.getComputer2PoweredUp());
+    os.setNASPoweredUp(!os.getNASPoweredUp());
  }
 
 
@@ -760,6 +832,8 @@ public static void main(String[] args)
  }
 
 
+/*  old pi4j V1 code - kept for documentation only
+
 public static class GpioListener implements GpioPinListenerDigital
  {private ObsControl oc;
   private ObsStatus  os;
@@ -779,7 +853,7 @@ public static class GpioListener implements GpioPinListenerDigital
 //    int pinNumber  = event.getPin();		// GPIO pin number (Pi4j)
     boolean switchClosed = event.getState().isLow();
 
-/*
+
   static GpioPinDigitalInput
                          iPin08		//roof open
 			,iPin09		//roof closed
@@ -794,7 +868,6 @@ public static class GpioListener implements GpioPinListenerDigital
                         ,iPin27		
                         ,iPin12
 			;
-*/
     
     if (pinName.equals("iPin08"))	// roof open
      {if (switchClosed)
@@ -901,7 +974,7 @@ public static class GpioListener implements GpioPinListenerDigital
        {os.setComputer2PoweredUp(true);
        }
      }
-/*
+
     else if (pinName.equals("iPin12"))
      {if (switchClosed)
        {
@@ -926,15 +999,19 @@ public static class GpioListener implements GpioPinListenerDigital
        {
        }
      }
-*/
     else
       System.out.println("Input deteced on "+pinName+" - not programmed");
 
    }
  }
+*/
 
 public void processUserInput(String s1)
  {if (tracer) System.out.println("OC.processUserInput("+s1+")");
+  if (s1 == null)
+   {System.out.println("null input from console - discarded");
+    return;
+   }
   if (s1.equals("99"))
     System.exit(0);
   if (s1.equals("1"))
