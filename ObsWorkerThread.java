@@ -19,7 +19,7 @@
 * 10 - toggle scope 3 power
 * 11 - toggle computer1 power
 * 12 - wakeup Abe computer
-* 13 - toggle computer2 power
+* 13 - toggle NAS power
 * 14 - wakeup Phil computer
 * 15 - toggle lights
 * 98 - refresh the client display
@@ -27,8 +27,8 @@
 *
 * all other numeric entries will be ignored - error message to console
 *
-*
-*
+* Maintenance history
+* 2026/07/03 PLS add additional print statements for diagnostic work
 *
 *
 *
@@ -43,7 +43,7 @@ public class ObsWorkerThread extends Thread implements Observer
  {private Socket socket = null;
   private ObsControl oc;
   private ObsStatus  os;
-  private int socketTimeout = 250;	// time in milliseconds
+  private int socketTimeout = 1000;	// time in milliseconds
   private int useCount = 0;
   private PrintWriter out;
   private static final
@@ -59,7 +59,8 @@ public class ObsWorkerThread extends Thread implements Observer
    }
 
   public void run()
-   {try
+   {if (tracer) System.out.println("OWT connected to: "+socket.getInetAddress());
+    try
      {out = new PrintWriter(socket.getOutputStream(), true);
       BufferedReader in = new BufferedReader
 	      (new InputStreamReader(socket.getInputStream()));
@@ -71,11 +72,16 @@ public class ObsWorkerThread extends Thread implements Observer
 //      out.println(outputLine+useCount);
 //      outputLine = "Additional output line from worker bee ";
       boolean continueProcessing = true;
+      socket.setSoTimeout(socketTimeout);	// short delay for security code 
       try {inputLine = in.readLine();}
-      catch (SocketTimeoutException e) {}
+      catch (SocketTimeoutException e)
+       {System.out.println("OWT security code not reeived in time");
+       }
       if (!inputLine.equals(securityCode))	// check for valid client
-	continueProcessing = false;
-//    socket.setSoTimeout(socketTimeout);
+      {continueProcessing = false;
+       if (!inputLine.equals("")) System.out.println("OWT bad scty code ["+inputLine+"]");
+      }
+      socket.setSoTimeout(0);			// allow infinite wait
       while (continueProcessing)
        {try {inputLine = in.readLine();}
         catch (SocketTimeoutException e)
@@ -91,7 +97,7 @@ public class ObsWorkerThread extends Thread implements Observer
          }
 
 	if ((tracer) & (requestNum != 0))
-	  System.out.println("worker thread has request :"+requestNum);
+	  System.out.println("OWT worker thread has request :"+requestNum);
  
        switch (requestNum)
 	 {case 0: break;
@@ -160,7 +166,7 @@ public class ObsWorkerThread extends Thread implements Observer
 	  inputLine = "quit";      
        }				// end of while loop
       out.println(inputLine);
-      if (tracer) System.out.println("   Closing worker thread socket and terminating");
+      if (tracer) System.out.println("OWT disconnect from: "+socket.getInetAddress());
       socket.close();
      }
     catch (IOException e)

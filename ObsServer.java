@@ -39,12 +39,13 @@ public class ObsServer
       }
     } // end for
 
+   initializeVoltmeter();
+   if(tracer) System.out.println("OS.main() voltmeter initialized");
 
    ObsStatus os = new ObsStatus();
    os.setTracer(tracer);
    ObsControl oc = new ObsControl(os,tracer);
-     initializeVoltmeter();
-       
+
    try (ServerSocket serverSocket = new ServerSocket(portNum))
     {while (true)
       {new ObsWorkerThread(serverSocket.accept(),oc,os).start();
@@ -54,6 +55,7 @@ public class ObsServer
     {System.err.println("Could not listen on port " + portNum);
      System.exit(-1);
     }
+
   }
  
  private static void initializeVoltmeter()
@@ -64,7 +66,7 @@ public class ObsServer
      String voltage = stdInput.readLine();
     }
    catch (IOException e)
-    {System.out.println("Error reading from Python routine\n");
+    {System.out.println("OS.initializeVoltmeter() Error reading from Python routine\n");
     	e.printStackTrace();
 //    	System.exit(-1);
 

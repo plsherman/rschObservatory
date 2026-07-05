@@ -80,11 +80,10 @@
 //   following imports needed to use raw IO pins on header
 
 import java.io.*;
-//import java.util.*;
+import java.util.*;
 import com.pi4j.Pi4J;
 import com.pi4j.io.gpio.digital.*;
 import com.pi4j.context.Context;
-//import com.pi4j.io.gpio.event.*;
 
 //   PinPull values OFF, PULL_UP, PULL_DOWN
 //     use PULL_UP and eliminate need for divider resistor network
@@ -144,6 +143,10 @@ public class ObsControl
 		,scopesSafe = false
 		,runOnPi = true
 		;
+    
+  private static final String[] piArchitectures = 
+    new String[] {"aarch64","arm"};
+    
   private ObsControlConsoleReader occr = new ObsControlConsoleReader();
   private NasShutdown nas = new NasShutdown();
 
@@ -159,15 +162,21 @@ public ObsControl(ObsStatus os1, boolean b)
  init();
 }
 
+
+
+
+
 private void init()
 {if (tracer) System.out.println("OC.init()");
- if (System.getProperty("os.arch").equals("aarm64"))
+ String s1 = System.getProperty("os.arch");
+ if (Arrays.stream(piArchitectures).anyMatch(s1::equals))
   {runOnPi = true;
+   if (tracer) System.out.println("Running on "+s1+" pi"); 
 //   gpio = GpioFactory.getInstance(); // create controller
    pi4j = Pi4J.newAutoContext();
   }
  else
-  {System.out.println("Not running on Pi");
+  {System.out.println("Not running on Pi - architecture is ["+s1+"]");
    runOnPi = false;
    tracer = true;
    os.setRoofClosed(true);

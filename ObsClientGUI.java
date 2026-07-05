@@ -193,7 +193,7 @@ public class ObsClientGUI
    else
      electronics1.setSelected(false);
 
-   if (os.getComputer2PoweredUp())
+   if (os.getNASPoweredUp())
      electronics2.setSelected(true);
    else
      electronics2.setSelected(false);
@@ -720,7 +720,7 @@ public class ObsClientGUI
 
    if (os.getScope3PoweredUp())  s1 = "Scope 3     is     powered up";
    else				 s1 = "Scope 3     is not powered up";
-   if (os.getComputer2PoweredUp())  s2 = "Backup drv is     powered up";
+   if (os.getNASPoweredUp())  s2 = "Backup drv is     powered up";
    else				 s2 = "Backup drv is not powered up";
    System.out.println(s1+"\t\t"+s2);
 
