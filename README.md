@@ -7,5 +7,6 @@ Research observatory code base rPi3
 			laptop. Updates are written and pushed to github from both
 			systems. Multiple push commands to lock in no pw push.
 			
+			
 			ALWAYS DO git fetch THEN git status TO VERIFY SOURCE ON
 			CURRENT SYSTEM IS CURRENT BEFORE STARTING CODE CHANGES.
