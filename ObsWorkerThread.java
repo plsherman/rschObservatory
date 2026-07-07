@@ -29,11 +29,12 @@
 *
 * Maintenance history
 * 2026/07/03 PLS add additional print statements for diagnostic work
-*
-*
+* 2026/07/06 PLS add user error msg if bad security code passed.
+*                add timestamp to start/stop messages
 *
  */ 
-
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.net.*;
 import java.io.*;
 import java.util.Observer;
@@ -49,6 +50,7 @@ public class ObsWorkerThread extends Thread implements Observer
   private static final
 	String securityCode = "d43909dbd40f9e6861e2676945e74992";
   private static boolean tracer = false;
+  private DateTimeFormatter dtf = DateTimeFormatter.ofPattern("HH:mm:ss");
   
   public ObsWorkerThread(Socket socket,ObsControl oc, ObsStatus os)
    {super("ObsWorkerThread");
@@ -59,7 +61,9 @@ public class ObsWorkerThread extends Thread implements Observer
    }
 
   public void run()
-   {if (tracer) System.out.println("OWT connected to: "+socket.getInetAddress());
+   {if (tracer) System.out.println("OWT connected to: "+socket.getInetAddress()
+                                   +" at "+LocalTime.now().format(dtf)
+                                  );
     try
      {out = new PrintWriter(socket.getOutputStream(), true);
       BufferedReader in = new BufferedReader
@@ -78,15 +82,16 @@ public class ObsWorkerThread extends Thread implements Observer
        {System.out.println("OWT security code not reeived in time");
        }
       if (!inputLine.equals(securityCode))	// check for valid client
-      {continueProcessing = false;
-       if (!inputLine.equals("")) System.out.println("OWT bad scty code ["+inputLine+"]");
-      }
+       {continueProcessing = false;
+        System.out.println("OWT bad scty code - disconnected ["+inputLine+"]");
+        inputLine = "Bad security code - disconnected";
+       }
       socket.setSoTimeout(0);			// allow infinite wait
       while (continueProcessing)
        {try {inputLine = in.readLine();}
         catch (SocketTimeoutException e)
          {}
-        if (inputLine == null)
+        if (inputLine == null)			// remote pgm disconnected
           break; 
         if (inputLine.equals("quit"))
           break;
@@ -166,7 +171,9 @@ public class ObsWorkerThread extends Thread implements Observer
 	  inputLine = "quit";      
        }				// end of while loop
       out.println(inputLine);
-      if (tracer) System.out.println("OWT disconnect from: "+socket.getInetAddress());
+      if (tracer) System.out.println("OWT disconnect from: "+socket.getInetAddress()
+                                   +" at "+LocalTime.now().format(dtf)
+                                  );
       socket.close();
      }
     catch (IOException e)
