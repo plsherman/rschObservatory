@@ -68,6 +68,7 @@
   		 changes to stop roof - look at parked???
   2020/07/21 PLS add to updateStatus() invocation of voltage update
   2026/06/10 PLS Updates for pi4j2 and Java 21
+  2026/07/08 PLS NAS shutdown print stmts updates
 		 Java updates not done for deprecated "observable"
 **********************************************************************
  * 
@@ -1081,16 +1082,14 @@ public class NasShutdown extends Thread
    {}
 
   public void shutNasDown()
-   {if (tracer) System.out.println("shutNasDown()");
+   {if (tracer) System.out.println("OC.shutNasDown()");
     String command = "nasPing1"; 
     try
      {Runtime rt = Runtime.getRuntime();
-//    Process pr = rt.exec(command);		// ping tests if up
-      Process pr = rt.exec(new String[]{command});
+      Process pr = rt.exec(new String[]{command});  // ping tests if up
       int returnCode = pr.waitFor();
       if (returnCode == 0)			// is up - shutdown with delay
        {command = "nasShutdown";
-//        pr = rt.exec(command);
         pr = rt.exec(new String[]{command});
         returnCode = pr.waitFor();
         try {Thread.sleep(60000);}		// wait for shutdown to complete
@@ -1098,11 +1097,11 @@ public class NasShutdown extends Thread
        }
      }
     catch (Throwable e)
-     {System.out.println("NAS shutdown: "+command+" failed");
+     {System.out.println("  shutdown: "+command+" failed, powering off anyway");
       System.out.println(e);
      }
     oPin03.toggle();
-    os.setComputer2PoweredUp(false);
+    os.setNASPoweredUp(false);
    }
  }  
 
