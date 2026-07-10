@@ -47,8 +47,8 @@ import java.io.*;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeEvent;
 
-public class ObsWorkerThread extends Thread implements PropertyChangeListener
- {private Socket socket = null;
+public class ObsWorker implements PropertyChangeListener, Runnable
+ {private final Socket socket;
   private ObsControl oc;
   private ObsStatus  os;
   private int socketTimeout = 1000      // time in milliseconds
@@ -63,15 +63,23 @@ public class ObsWorkerThread extends Thread implements PropertyChangeListener
   private static boolean tracer = false;
   private DateTimeFormatter dtf = DateTimeFormatter.ofPattern("HH:mm:ss");
 
-  public ObsWorkerThread(Socket socket,ObsControl oc, ObsStatus os)
-   {super("ObsWorkerThread");
-    this.socket = socket;
+  public ObsWorker(Socket socket,ObsControl oc, ObsStatus os)
+   {this.socket = socket;
     this.oc = oc;
     this.os = os;
     tracer = os.getTracer();
    }
 
+  @Override
   public void run()
+   {try (this.socket)
+     {handleSocket();}
+    catch (Exception e)
+     {e.printStackTrace();
+    }
+  }
+
+  private void handleSocket()
    {if (tracer) System.out.println("OWT connected to: "+socket.getInetAddress()
            +":"+socket.getPort()+" at "+LocalTime.now().format(dtf)
                                   );
@@ -176,17 +184,13 @@ public class ObsWorkerThread extends Thread implements PropertyChangeListener
             break;
          }
         requestNum = 0;
-        if (continueProcessing)
-          inputLine = "";
-        else
-          inputLine = "quit";
-       }                                // end of while loop
-// *****************************  WHILE LOOP END  *******************
+        inputLine = continueProcessing ? "" : "quit";
+      }				// end of while loop// *****************************  WHILE LOOP END  *******************
       out.println(inputLine);
       if (tracer) System.out.println("OWT disconnect from: "+socketPort
                                    +" at "+LocalTime.now().format(dtf)
                                   );
-     }
+    }
     catch (IOException e)
      {e.printStackTrace();
      }
