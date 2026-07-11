@@ -182,6 +182,10 @@ public class ObsStatus extends Observable
    computer1PoweredUp = b;
    commonFunctions(b);
   }
+ /**
+  * @deprecated use {@link #setNASPoweredUp(boolean)} instead
+  */
+ @Deprecated
  public void setComputer2PoweredUp(boolean b)
   {System.out.println("  Invalid invoke of setComputer2PoweredUp: processed");
    System.out.println("    change offending code to setNASPoweredUp()");
@@ -335,6 +339,10 @@ public class ObsStatus extends Observable
    {if (tracer) System.out.println("OS.getComputer1PoweredUp()");
     return computer1PoweredUp;
    }
+  /**
+   * @deprecated use {@link #getNASPoweredUp()} instead
+   */
+  @Deprecated
   public boolean getComputer2PoweredUp()  // catches old invokes
    {System.out.println("/nBad invoke of getComputer2PoweredUp(): processed");
     System.out.println("  change offending code to getNASPoweredUp()");
