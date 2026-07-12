@@ -17,6 +17,9 @@ if [[ "acopy" != $s1 ]]; then			# copy only not requested
   echo "\nstarting compiles\n"
   pi4j -c ObsStatus.java
   rcsum=$?
+  pi4j -c ObsRequest.java
+  rc=$?
+  rcsum=$((rcsum + rc))
   pi4j -c ObsClientGUI.java
   rc=$?
   rcsum=$((rcsum + rc))
