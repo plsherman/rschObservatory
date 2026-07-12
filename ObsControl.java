@@ -148,8 +148,7 @@ public class ObsControl
   private static final String[] piArchitectures = 
     new String[] {"aarch64","arm"};
     
-  private ObsControlConsoleReader occr = new ObsControlConsoleReader();
-  private NasShutdown nas = new NasShutdown();
+  private final NasShutdown nas = new NasShutdown();
 
 public ObsControl(ObsStatus os)
 {this(os,false);
@@ -183,7 +182,7 @@ private void init()
    os.setRoofClosed(true);
    BufferedReader stdIn =
    	new BufferedReader(new InputStreamReader(System.in));
-   occr.setReader(stdIn);
+   ObsControlConsoleReader occr = new ObsControlConsoleReader(stdIn);
    occr.start();
   }
  if (runOnPi) setupIOPins();
@@ -1044,44 +1043,37 @@ public void processUserInput(String s1)
 
 
 public class ObsControlConsoleReader extends Thread
-  {private BufferedReader br;
-   private String inData="";
-   public ObsControlConsoleReader()
-    {}
-
-   public void setReader(BufferedReader br)
-    {this.br = br;
+  {private final BufferedReader br;
+   public ObsControlConsoleReader(BufferedReader br)
+    {super("ConsoleReader");
+     this.br = br;
+     setDaemon(true);
     }
 
    public void run()
     {
      while (true)
-      {try {inData = br.readLine();
-	    if (inData == null)
-	     {System.out.println("Null input from console");
-//            break;
-             }
-            if (inData.equals("quit"))
-	      inData = "99";
-            processUserInput(inData);
-           }
+      {try
+        {String inData = br.readLine();
+         if (inData == null)
+          {System.out.println("EOF from console");
+           break;
+         }
+         if (inData.equals("quit"))
+           inData = "99";
+         processUserInput(inData);
+       }
        catch (IOException e)
         {System.out.println("I/O error reading from console") ;
-        }
-      }
-    }
-  }
+       }
+     }
+   }
+ }
 
 
 
-public class NasShutdown extends Thread
- {public NasShutdown()
-   {}
-  
-  public void run()
-   {}
-
-  public void shutNasDown()
+public class NasShutdown 
+ {public void shutNasDown()
    {if (tracer) System.out.println("OC.shutNasDown()");
     String command = "nasPing1"; 
     try
