@@ -71,7 +71,6 @@ public class ObsWorkerThread extends Thread implements Observer
       os.addObserver(this); 
       String inputLine = "", outputLine = "";
       update (os,inputLine);
-      int requestNum = 0;
 //      outputLine = "Output line from worker bee ";
 //      out.println(outputLine+useCount);
 //      outputLine = "Additional output line from worker bee ";
@@ -79,7 +78,7 @@ public class ObsWorkerThread extends Thread implements Observer
       socket.setSoTimeout(socketTimeout);	// short delay for security code 
       try {inputLine = in.readLine();}
       catch (SocketTimeoutException e)
-       {System.out.println("OWT security code not reeived in time");
+       {System.out.println("OWT security code not received in time");
        }
       if (!inputLine.equals(securityCode))	// check for valid client
        {continueProcessing = false;
@@ -96,79 +95,76 @@ public class ObsWorkerThread extends Thread implements Observer
         if (inputLine.equals("quit"))
           break;
 
-        try {requestNum = Integer.parseInt(inputLine);}
-        catch (NumberFormatException e)
-	 {requestNum = 0;
-         }
+        ObsRequest request = ObsRequest.unmarshall(inputLine);
 
-	if ((tracer) & (requestNum != 0))
-	  System.out.println("OWT worker thread has request :"+requestNum);
- 
-       switch (requestNum)
-	 {case 0: break;
-          case 1:
-	    oc.openRoof();
-	    break;
-	  case 2:
-	    oc.closeRoof();
-	    break;
-	  case 3:
-	    oc.stopRoof();
-	    break;
-	  case 4:
-	    if (os.getOverrideScopesParked())
-	      oc.setOverrideScopesParked(false);
-	    else
-	      oc.setOverrideScopesParked(true);
-	    break;
-	  case 5:
-	    oc.pushInverterPowerButton();
-	    break;
-	  case 6:
-	    oc.togglePowerS1R1();
-	    break;
-	  case 7:
-	    oc.togglePowerS1R2();
-	    break;
-	  case 8:
-	    oc.toggleScopesParkedPower();
-	    break;
-	  case 9:
-	    oc.togglePowerS2();
-	    break;
-	  case 10:
-	    oc.togglePowerS3();
-	    break;
-	  case 11:
-	    oc.togglePowerComputer1();
-	    break;
-	  case 12:
-	    oc.wakeUp("Abe");
-	    break;
-	  case 13:
-	    oc.togglePowerNAS();
-	    break;
-	  case 14:
-	    oc.wakeUp("Phil");
-	    break;
-	  case 15:
-	    oc.toggleLights();
-	    break;
-	  case 98:
-	    refresh();
-	    break;
-	  case 99:
-	    continueProcessing = false;
-	    break;
-	  default:
-	    System.out.println("OWT.run() unknown user request: "+requestNum);
-	    break;
-	 }
-        requestNum = 0; 
+	    if (tracer)
+	      System.out.println("OWT worker thread has request: " + request);
+
+        switch (request)
+         {case NO_OP:
+            break;
+          case OPEN_ROOF:
+            oc.openRoof();
+            break;
+          case CLOSE_ROOF:
+            oc.closeRoof();
+            break;
+          case STOP_ROOF:
+            oc.stopRoof();
+            break;
+          case TOGGLE_OVERRIDE_SCOPES_PARKED:
+            oc.setOverrideScopesParked(!os.getOverrideScopesParked());
+            break;
+          case PUSH_INVERTER_POWER_BUTTON:
+            oc.pushInverterPowerButton();
+            break;
+          case TOGGLE_POWER_SCOPE1_POWER1:
+            oc.togglePowerS1R1();
+            break;
+          case TOGGLE_POWER_SCOPE1_POWER2:
+            oc.togglePowerS1R2();
+            break;
+          case TOGGLE_SCOPES_PARKED_POWER:
+            oc.toggleScopesParkedPower();
+            break;
+          case TOGGLE_POWER_SCOPE2:
+            oc.togglePowerS2();
+            break;
+          case TOGGLE_POWER_SCOPE3:
+            oc.togglePowerS3();
+            break;
+          case TOGGLE_POWER_COMPUTER1:
+            oc.togglePowerComputer1();
+            break;
+          case WAKE_UP_ABE_LAPTOP:
+            oc.wakeUp("Abe");
+            break;
+          case WAKE_UP_ABE_DESKTOP:
+            System.out.println("Unsupported request "+request+" ignored");
+            break;
+          case TOGGLE_POWER_NAS:
+            oc.togglePowerNAS();
+            break;
+          case WAKE_UP_PHIL:
+            oc.wakeUp("Phil");
+            break;
+          case TOGGLE_LIGHTS:
+            oc.toggleLights();
+            break;
+          case REFRESH_DISPLAY:
+            refresh();
+            break;
+          case STOP_PROCESSING:
+            continueProcessing = false;
+            break;
+          default:
+            System.out.println("Unsupported request "+request+" ignored");
+            break;
+         }
         if (continueProcessing)
-	  inputLine = "";
-	else
-	  inputLine = "quit";      
+	      inputLine = "";
+        else
+          inputLine = "quit";
        }				// end of while loop
       out.println(inputLine);
       if (tracer) System.out.println("OWT disconnect from: "+socket.getInetAddress()

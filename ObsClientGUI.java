@@ -69,7 +69,7 @@ public class ObsClientGUI
  private static JButton b01, b02, b03, b04, b05, b06, b07, b08, b09, b10
 			,electronics5
 			;
- private static String lastUserInput = "";
+ private static ObsRequest lastUserInput = ObsRequest.NO_OP;
 
  private static JLabel panelMessage = new JLabel(""); 
 
@@ -288,20 +288,16 @@ public class ObsClientGUI
    JLabel label2 = new JLabel("   Status:");
    roofStatus = new JTextArea("Unknown");
    parkOverride = new JToggleButton("Scopes parked override");
-   parkOverride.setActionCommand("spo");
+   registerListener(parkOverride, ObsRequest.TOGGLE_OVERRIDE_SCOPES_PARKED);
    label1.setFont(textFontBold);
    label2.setFont(textFont);
    roofStatus.setFont(textFont);
    b01 = new JButton("Open");
    b02 = new JButton("Stop");
    b03 = new JButton("Close");
-   b01.setActionCommand("b01");
-   b02.setActionCommand("b02");
-   b03.setActionCommand("b03");
-   b01.addActionListener(bh1);
-   b02.addActionListener(bh1);
-   b03.addActionListener(bh1);
-   parkOverride.addActionListener(bh1);
+   registerListener(b01, ObsRequest.OPEN_ROOF);
+   registerListener(b02, ObsRequest.STOP_ROOF);
+   registerListener(b03, ObsRequest.CLOSE_ROOF);
    roofButtonPanel.add(label1);
    roofButtonPanel.add(b01);
    roofButtonPanel.add(b02);
@@ -331,15 +327,10 @@ public class ObsClientGUI
    scopePowerButton3  = new JToggleButton(scopePowerButtonText);
    scopePowerButton1a = new JToggleButton(scopePowerButton1aText); 
 
-   scopePowerButton1.setActionCommand("s1p1");
-   scopePowerButton1a.setActionCommand("s1p2");
-   scopePowerButton2.setActionCommand("s2p");
-   scopePowerButton3.setActionCommand("s3p");
-
-   scopePowerButton1.addActionListener(bh1);
-   scopePowerButton2.addActionListener(bh1);
-   scopePowerButton3.addActionListener(bh1);
-   scopePowerButton1a.addActionListener(bh1);
+   registerListener(scopePowerButton1, ObsRequest.TOGGLE_POWER_SCOPE1_POWER1);
+   registerListener(scopePowerButton1a, ObsRequest.TOGGLE_POWER_SCOPE1_POWER2);
+   registerListener(scopePowerButton2, ObsRequest.TOGGLE_POWER_SCOPE2);
+   registerListener(scopePowerButton2, ObsRequest.TOGGLE_POWER_SCOPE3);
 
    label0.setFont(textFontBold);
    label1.setFont(textFont);
@@ -388,17 +379,11 @@ public class ObsClientGUI
    electronics4 = new JToggleButton(electronicsButtonText4);
    electronics5 = new JButton(electronicsButtonText5);
 
-   electronics1.addActionListener(bh1);
-   electronics2.addActionListener(bh1);
-   electronics3.addActionListener(bh1);
-   electronics4.addActionListener(bh1);
-   electronics5.addActionListener(bh1);
-
-   electronics1.setActionCommand("eth");
-   electronics2.setActionCommand("bkd");
-   electronics3.setActionCommand("pks");
-   electronics4.setActionCommand("Lights");
-   electronics5.setActionCommand("inv");
+   registerListener(electronics1, ObsRequest.TOGGLE_POWER_COMPUTER1);
+   registerListener(electronics2, ObsRequest.TOGGLE_POWER_NAS);
+   registerListener(electronics3, ObsRequest.TOGGLE_OVERRIDE_SCOPES_PARKED);
+   registerListener(electronics4, ObsRequest.TOGGLE_LIGHTS);
+   registerListener(electronics5, ObsRequest.PUSH_INVERTER_POWER_BUTTON);
 
    label1.setFont(textFontBold);
 
@@ -428,13 +413,9 @@ public class ObsClientGUI
    b05 = new JButton(b05Text);
    b06 = new JButton(b06Text);
 
-   b04.setActionCommand("b04");
-   b05.setActionCommand("b05");
-   b06.setActionCommand("b06");
-
-   b04.addActionListener(bh1);
-   b05.addActionListener(bh1);
-   b06.addActionListener(bh1);
+   registerListener(b04, ObsRequest.WAKE_UP_ABE_DESKTOP);
+   registerListener(b05, ObsRequest.WAKE_UP_ABE_LAPTOP);
+   registerListener(b06, ObsRequest.WAKE_UP_PHIL);
 
    label1.setFont(textFontBold);
    computerPanelSub.add(b04);
@@ -454,8 +435,7 @@ public class ObsClientGUI
    buildComputerPanel();
    JPanel refreshPanel = new JPanel();
    b07 = new JButton("Refresh");
-   b07.addActionListener(bh1);
-   b07.setActionCommand("b07");
+   registerListener(b07, ObsRequest.REFRESH_DISPLAY);
    refreshPanel.add(new JLabel(" "),BorderLayout.EAST);
    refreshPanel.add(b07);
    refreshPanel.add(new JLabel(" "),BorderLayout.CENTER);
@@ -597,17 +577,17 @@ public class ObsClientGUI
 
   }
 
- public void processUserInput(String userIn)
-  {if (tracer) System.out.println("OC.processUserInput '"+userIn+"'");
-   lastUserInput = userIn;
+ public void processUserInput(ObsRequest request)
+  {if (tracer) System.out.println("OC.processUserInput "+request);
+   lastUserInput = request;
 
-   if (userIn.equals("1") | userIn.equals("2"))
+   if (request.equals(ObsRequest.OPEN_ROOF) | request.equals(ObsRequest.CLOSE_ROOF))
     {if ((os.getScope1Parked() & os.getScope2Parked()
 		& os.getScope3Parked())
          | os.getOverrideScopesParked()
          | (!os.getScopesParkedPowerOn())
         )
-      {try {out.println(userIn);}			// send to server
+      {try {out.println(request);}			// send to server
        catch (Exception e) {System.out.println(e);}
        readWaitCount = readWaitShort;
        waitingForServer = true;
@@ -622,12 +602,8 @@ public class ObsClientGUI
       }
     }
    else
-    {out.println(userIn);				// send to server
-     if (userIn.equals("5")|userIn.equals("12")|userIn.equals("14")
-         | userIn.equals("99")
-        )
-       {}
-     else
+    {out.println(request);				// send to server
+     if (!request.handledImmediately)
       {readWaitCount = readWaitShort;
        errorMessage = "Waiting for server response";
        waitingForServer = true;
@@ -637,7 +613,7 @@ public class ObsClientGUI
          System.out.println(errorMessage);
       }
     }
-   if (userIn.equals("99"))
+   if (request.equals(ObsRequest.STOP_PROCESSING))
      System.exit(0);
   }
 
@@ -755,7 +731,7 @@ public class ObsClientConsoleReader extends Thread
     {
      while (true)
       {try {inData = br.readLine();
-            processUserInput(inData);
+            processUserInput(ObsRequest.unmarshall(inData));
 	    if (inData == null)
 	     {System.out.println("Null input from console");
               break;
@@ -770,91 +746,30 @@ public class ObsClientConsoleReader extends Thread
     }
   }
 
+private static void registerListener(AbstractButton button, ObsRequest request)
+ {button.setActionCommand(request.marshall());
+  button.addActionListener(bh1);
+}
 
-class MyButtonHandler implements ActionListener
+static class MyButtonHandler implements ActionListener
  {private ObsClientGUI oc;
   public MyButtonHandler(ObsClientGUI a)
    {oc = a;
    }
   public void actionPerformed(ActionEvent e)
    {String ac = e.getActionCommand();
-    if (oc.tracer) System.out.println("OCG_BH.actionPerformed("+ac+")");
-//    System.out.println(oc.parkOverride.isSelected());   
-    if (ac.equals("b01"))
-     {if (oc.tracer) System.out.println("  Open roof");
-      oc.processUserInput("1");
-     }
-    else if (ac.equals("b02"))
-     {if (oc.tracer) System.out.println("  Stop roof");
-      oc.processUserInput("3");
-     }
-    else if (ac.equals("b03"))
-     {if (oc.tracer) System.out.println("  Close roof");
-      oc.processUserInput("2");
-     }
-    else if (ac.equals("b07"))
-     {if (oc.tracer) System.out.println("  Refresh display");
-      oc.processUserInput("98");
-     }
-    else if (ac.equals("spo"))
-     {if (oc.tracer) System.out.println("  Scopes parked override");
-      oc.processUserInput("4");
-     }
-    else if (ac.equals("s1p1"))
-     {if (oc.tracer) System.out.println("  Scope 1 Power 1");  // Abe scope power
-      oc.processUserInput("6");
-     }
-    else if (ac.equals("s1p2"))
-     {if (oc.tracer) System.out.println("  Scope 1 Power 2");  //Abe Camera - scope power reqd
-      oc.processUserInput("7");
-     }
-    else if (ac.equals("s2p"))
-     {if (oc.tracer) System.out.println("  Scope 2 Power");    // phil scope power
-      oc.processUserInput("9");
-     }
-    else if (ac.equals("s3p"))
-     {if (oc.tracer) System.out.println("  Scope 3 Power");
-      oc.processUserInput("10");
-     }
-    else if (ac.equals("b04"))
-     {if (oc.tracer) System.out.println("  Abe desktop");	// wakeup command
-      oc.processUserInput("12");
-     }
-    else if (ac.equals("b05"))
-     {if (oc.tracer) System.out.println("  Abe laptop");	//wakeup command
-      oc.processUserInput("12");
-     }
-    else if (ac.equals("b06"))
-     {if (oc.tracer) System.out.println("  Phil laptop");	//wakeup command
-      oc.processUserInput("14");
-     }
-    else if (ac.equals("bkd"))
-     {if (oc.tracer) System.out.println("  Backup Drive");
-      oc.processUserInput("13"); 
-    }
-    else if (ac.equals("pks"))
-     {if (oc.tracer) System.out.println("  parked sensors power");
-      oc.processUserInput("8");
-     }
-    else if (ac.equals("eth"))
-     {if (oc.tracer) System.out.println("  ethernet");
-      oc.processUserInput("11");
-     }
-    else if (ac.equals("Lights"))
-     {if (oc.tracer) System.out.println("  Lights");
-      oc.processUserInput("15");
-     }
-    else if (ac.equals("inv"))
-     {if (oc.tracer) System.out.println("  Inverter power button");
-      oc.processUserInput("5");
-     }
-    else
-     {System.out.println("    Unknown action command: "+ac);
-      if (oc.errorMessage.equals(""))
-       {oc.errorMessage = "    Unknown action command: "+ac;
+    ObsRequest request = ObsRequest.unmarshall(ac);
+    if (request.equals(ObsRequest.NO_OP))
+     {System.out.println("    Unknown action command: '"+ac+"'");
+      if (oc.errorMessage.isEmpty())
+       {oc.errorMessage = "    Unknown action command: '"+ac+"'";
         oc.updatePanelMessage();
-       }
-     }
+      }
+      return;
+    }
+    if (oc.tracer) System.out.println("OCG_BH.actionPerformed("+request+")");
+//    System.out.println(oc.parkOverride.isSelected());
+    oc.processUserInput(request);
    }
 
  }

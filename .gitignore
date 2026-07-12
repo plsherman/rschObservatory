@@ -3,3 +3,16 @@
 *.out
 *.log
 *.txt
+
+# Ignore IntelliJ IDEA files
+.idea/
+*.iml
+
+# Ignore Gradle project-specific cache directory
+.gradle
+
+# Ignore Gradle build output directory
+build
+
+# Ignore Kotlin plugin data
+.kotlin
