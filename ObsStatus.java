@@ -6,7 +6,7 @@
   2020-07-16 PLS add field for voltage - code to update and fetch
   2026-06-09 PLS recode Runtime .exec for new java version
   2026-06-13 PLS change computer2 to backupDrive, 
-
+  2026-07-11 PLS add missing close() to readVoltage()
 
 */
 import java.util.Observable;
@@ -153,11 +153,16 @@ public class ObsStatus extends Observable
 
  public void readVoltage()
   {if (tracer) System.out.println("OS.readVoltage()");
+   BufferedReader stdInput;
    try
     {Process p = Runtime.getRuntime().exec(new String[]{"readit.py"});
-     BufferedReader stdInput = new BufferedReader(new 
-                 InputStreamReader(p.getInputStream()));
-     voltage = stdInput.readLine();
+     stdInput = new BufferedReader
+                   (new InputStreamReader(p.getInputStream()));
+     try {voltage = stdInput.readLine();}
+     catch(IOException e)
+      {System.out.println("  read failed");
+       voltage = "error";
+      }
     }
   catch (IOException e)
    {System.out.println("Error reading from Python routine\n");
@@ -165,6 +170,12 @@ public class ObsStatus extends Observable
 //    	System.exit(-1);
         voltage = "error";
    }
+   finally 
+    {try {stdInput.close();}
+     catch(IOError e) {}
+    }
+       
+   
   }
 
  public String getVoltage()
