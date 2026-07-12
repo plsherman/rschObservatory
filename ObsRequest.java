@@ -21,39 +21,26 @@ public enum ObsRequest {
   REFRESH_DISPLAY(98),
   STOP_PROCESSING(99, true);
 
-  public final int code;
+  private final String code;
   public final boolean handledImmediately;
 
-  public static ObsRequest forCode(int code) {
-    validate();
-    ObsRequest event = CODE_TO_EVENT.get(code);
+  String marshall() {
+    init();
+    return code;
+  }
+
+  public static ObsRequest unmarshall(String marshalledData) {
+    init();
+    if (marshalledData == null) return ObsRequest.NO_OP;
+    ObsRequest event = CODE_TO_EVENT.get(marshalledData.trim());
     if (event == null) {
-      throw new IllegalArgumentException("No event with code=" + code);
+      System.out.println("Ignoring request with code='" + marshalledData + "'");
+      event = ObsRequest.NO_OP;
     }
     return event;
   }
 
-  String marshall() {
-    return "" + code;
-  }
-
-  public static ObsRequest unmarshall(String codeStr) {
-    if (codeStr == null) return ObsRequest.NO_OP;
-    try {
-      int code = Integer.parseInt(codeStr);
-      ObsRequest event = CODE_TO_EVENT.get(code);
-      if (event == null) {
-        System.out.println("Ignoring request with code=" + code);
-        event = ObsRequest.NO_OP;
-      }
-      return event;
-    } catch (NumberFormatException e) {
-      System.out.println("Ignoring request with invalid code='" + codeStr + "'");
-      return ObsRequest.NO_OP;
-    }
-  }
-
-  public static void validate() {
+  public static void init() {
     if (CODE_TO_EVENT.isEmpty()) {
       for (ObsRequest event : ObsRequest.values()) {
         if (CODE_TO_EVENT.put(event.code, event) != null) {
@@ -71,10 +58,10 @@ public enum ObsRequest {
   }
 
   private ObsRequest(int code, boolean handledImmediately) {
-    this.code = code;
+    this.code = "" + code;
     this.handledImmediately = handledImmediately;
   }
 
-  private static final Map<Integer, ObsRequest> CODE_TO_EVENT = new HashMap<>();
-  private static final Set<Integer> DUPLICATE_CODES = new HashSet<>();
+  private static final Map<String, ObsRequest> CODE_TO_EVENT = new HashMap<>();
+  private static final Set<String> DUPLICATE_CODES = new HashSet<>();
 }

@@ -39,7 +39,6 @@
 
 import java.net.*;
 import javax.swing.*;
-import java.applet.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.*;
@@ -148,6 +147,7 @@ public class ObsClientGUI
     {System.err.println("Usage: java ObsClientGUI <host name> <port number> [trace]");
      System.exit(1);
     }
+   ObsRequest.init();
    ObsClientGUI oc = new ObsClientGUI();
    if (gui)
     {

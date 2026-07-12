@@ -150,6 +150,7 @@ public class ObsClient
     {System.err.println("Usage: java ObsClient <host name> <port number> [trace]");
      System.exit(1);
     }
+   ObsRequest.init();
    ObsClient oc = new ObsClient();
    if (gui)
     {

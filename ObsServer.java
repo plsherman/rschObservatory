@@ -33,7 +33,6 @@
 
 import java.net.*;
 import java.io.*;
-
 public class ObsServer
 {
  public static void main(String[] args) throws IOException
@@ -62,6 +61,7 @@ public class ObsServer
       }
     } // end for
 
+   ObsRequest.init();
    initializeVoltmeter();
    if(tracer) System.out.println("  voltmeter initialized");
 
@@ -78,7 +78,7 @@ public class ObsServer
         {System.out.println("OS.main() closed socket detected - shutdown");
          if (os.getNASPoweredUp())
            oc.togglePowerNAS();	// controlled shutdown may take 60 seconds
-         System.exit(1); 
+         System.exit(1);
         }
       }   // while
     }     // try
