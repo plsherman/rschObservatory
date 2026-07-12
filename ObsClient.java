@@ -399,7 +399,7 @@ public class ObsClient
   }
 
  private void buildComputerPanel()
-  {if (tracer) System.out.println("OCG.builComputerPanel()");
+  {if (tracer) System.out.println("OCG.buildComputerPanel()");
    JPanel computerPanel = new JPanel();
    JPanel computerPanelSub = new JPanel(new GridLayout(1,3));
    JLabel label1 = new JLabel("Wake on Lan");
@@ -495,15 +495,14 @@ public class ObsClient
 
  public void clientProcess()
   {if (tracer) System.out.println("OCG.clientProcess()");
-   ObsClientConsoleReader occr = new ObsClientConsoleReader();
-     String fromServer = "";
-     String fromUser = "";
-     String sb = "0";
+   String fromServer = "";
+   String fromUser = "";
+   String sb = "0";
 
    fromServer = resetSocket();
    BufferedReader stdIn =
 	new BufferedReader(new InputStreamReader(System.in));
-   occr.setReader(stdIn);
+   ObsClientConsoleReader occr = new ObsClientConsoleReader(stdIn);
    occr.start();
 
 
@@ -709,27 +708,26 @@ public class ObsClient
      	
 
 public class ObsClientConsoleReader extends Thread
-  {private BufferedReader br;
-   private String inData="";
-   public ObsClientConsoleReader()
-    {}
-
-   public void setReader(BufferedReader br)
-    {this.br = br;
+  {private final BufferedReader br;
+   public ObsClientConsoleReader(BufferedReader br)
+    {super("ObsClientConsoleReader");
+     this.br = br;
+     setDaemon(true);
     }
 
    public void run()
     {
      while (true)
-      {try {inData = br.readLine();
-            processUserInput(inData);
-	    if (inData == null)
-	     {System.out.println("Null input from console");
-              break;
-             }
-            if (inData.equals("quit"))
-	      break;
-           }
+      {try
+        {String inData = br.readLine();
+	     if (inData == null)
+	      {System.out.println("Null input from console");
+           break;
+         }
+         processUserInput(inData);
+         if (inData.equals("quit"))
+	       break;
+        }
        catch (IOException e)
         {System.out.println("I/O error reading from console") ;
         }
