@@ -7,12 +7,14 @@
   2026-06-09 PLS recode Runtime .exec for new java version
   2026-06-13 PLS change computer2 to backupDrive, 
   2026-07-11 PLS add missing close() to readVoltage()
+  2026-07-11 PLS chage Observable to beansProperty* 
 
 */
-import java.util.Observable;
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeSupport;
 import java.io.*;
 
-public class ObsStatus extends Observable 
+public class ObsStatus 
 {boolean tracer = false				// 0
 	,roofOpen = false			// 1
 	,roofClosed = false			// 2
@@ -35,7 +37,25 @@ public class ObsStatus extends Observable
  int flagCount  = 16;
  int j = 0;
  boolean newState = false;
- String oldStatus = "", newStatus = "", voltage = "UNK";
+ String oldStatus = ""
+       ,newStatus = ""
+       ,voltage = "UNK"
+       ,saveStatus			// new for property change
+       ,flagsName = "statusBytes";	// placeholder for firePropertyChange
+       ;
+
+ private final PropertyChangeSupport obsStatus
+		= new PropertyChangeSupport(this);
+
+ public void addListener(PropertyChangeListener listener)
+   {obsStatus.addPropertyChangeListener(listener);
+  }
+
+public void removeListener(PropertyChangeListener listener)
+ {obsStatus.removePropertyChangeListener(listener);
+ }
+
+
 
  public void setAll(String flags)
 /*************************************************************************
@@ -78,7 +98,13 @@ public class ObsStatus extends Observable
   }
 
  public String getAll()
-  {if (tracer) System.out.println("OS.getAll()");
+  {
+/* *************************************************************
+*  convert boolean status variables to a single string of 1 (true)
+*  and 0 (false) to pass to clients. Add voltage to string end
+* **************************************************************
+*/
+   if (tracer) System.out.println("OS.getAll()");
    String s = new String("");
    if (tracer)			s = "1 ";
    else				s = "0 ";
@@ -145,15 +171,15 @@ public class ObsStatus extends Observable
    if (oldStatus.equals(newStatus))
     {}
    else
-    {oldStatus = newStatus;
-     setChanged();
-     notifyObservers();
+    {saveStatus = oldStatus;
+     oldStatus = newStatus;
+     obsStatus.firePropertyChange(flagsName,oldStatus,newStatus);
     }
   }
 
  public void readVoltage()
   {if (tracer) System.out.println("OS.readVoltage()");
-   BufferedReader stdInput;
+   BufferedReader stdInput = null;
    try
     {Process p = Runtime.getRuntime().exec(new String[]{"readit.py"});
      stdInput = new BufferedReader
@@ -162,19 +188,20 @@ public class ObsStatus extends Observable
      catch(IOException e)
       {System.out.println("  read failed");
        voltage = "error";
+       try {stdInput.close();}
+       catch(IOException f)
+        {System.out.println("  voltmeter reader bad close after bad read");
+         System.out.println("  "+f);
+        }
       }
-    }
-  catch (IOException e)
+    }  // end try line 174
+  catch (IOException e)		// unable to build reader
    {System.out.println("Error reading from Python routine\n");
     	e.printStackTrace();
 //    	System.exit(-1);
         voltage = "error";
    }
-   finally 
-    {try {stdInput.close();}
-     catch(IOError e) {}
-    }
-       
+ 
    
   }
 
@@ -370,9 +397,7 @@ public class ObsStatus extends Observable
   {if (tracer) System.out.println("OS.getScopesParkedPowerOn()");
    return scopesParkedPowerOn;
   }
- public void update (Observable obsStatus)
-  { System.out.println("status change recorded");
-  }
+
 
  public static void main(String[] args)
   {ObsStatus obs1 = new ObsStatus();

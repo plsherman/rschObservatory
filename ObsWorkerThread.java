@@ -31,22 +31,33 @@
 * 2026/07/03 PLS add additional print statements for diagnostic work
 * 2026/07/06 PLS add user error msg if bad security code passed.
 *                add timestamp to start/stop messages
+* 2026/07/12 PLS add more exception handling and file/socket close calls
 *
- */ 
+
+
+
+**********************************************************************
+ REMOVE s2 CODE IF NO TESTING ERRORS  source code lines @215+
+**********************************************************************
+*/ 
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.net.*;
 import java.io.*;
-import java.util.Observer;
-import java.util.Observable;
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeEvent;
 
-public class ObsWorkerThread extends Thread implements Observer
+public class ObsWorkerThread extends Thread implements PropertyChangeListener
  {private Socket socket = null;
   private ObsControl oc;
   private ObsStatus  os;
-  private int socketTimeout = 1000;	// time in milliseconds
-  private int useCount = 0;
+  private int socketTimeout = 1000	// time in milliseconds
+             ,useCount      = 0
+             ,requestNum    = 0
+             ,socketPort   = 0
+             ;
   private PrintWriter out;
+  private BufferedReader in;
   private static final
 	String securityCode = "d43909dbd40f9e6861e2676945e74992";
   private static boolean tracer = false;
@@ -62,24 +73,23 @@ public class ObsWorkerThread extends Thread implements Observer
 
   public void run()
    {if (tracer) System.out.println("OWT connected to: "+socket.getInetAddress()
-                                   +" at "+LocalTime.now().format(dtf)
+           +":"+socket.getPort()+" at "+LocalTime.now().format(dtf)
                                   );
+      os.addListener(this); 
+      socketPort = socket.getPort();
+
     try
      {out = new PrintWriter(socket.getOutputStream(), true);
-      BufferedReader in = new BufferedReader
-	      (new InputStreamReader(socket.getInputStream()));
-      os.addObserver(this); 
+      out.println("");			// prime output queue
+      in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
       String inputLine = "", outputLine = "";
-      update (os,inputLine);
-      int requestNum = 0;
-//      outputLine = "Output line from worker bee ";
-//      out.println(outputLine+useCount);
-//      outputLine = "Additional output line from worker bee ";
+
+      int requestNum = 0;		// input from client is number <= 99
       boolean continueProcessing = true;
       socket.setSoTimeout(socketTimeout);	// short delay for security code 
       try {inputLine = in.readLine();}
       catch (SocketTimeoutException e)
-       {System.out.println("OWT security code not reeived in time");
+       {System.out.println("OWT security code not received in time");
        }
       if (!inputLine.equals(securityCode))	// check for valid client
        {continueProcessing = false;
@@ -170,27 +180,62 @@ public class ObsWorkerThread extends Thread implements Observer
 	else
 	  inputLine = "quit";      
        }				// end of while loop
+// *****************************  WHILE LOOP END  *******************
       out.println(inputLine);
-      if (tracer) System.out.println("OWT disconnect from: "+socket.getInetAddress()
+      if (tracer) System.out.println("OWT disconnect from: "+socketPort
                                    +" at "+LocalTime.now().format(dtf)
                                   );
-      socket.close();
      }
     catch (IOException e)
      {e.printStackTrace();
      }
+
+    try {out.close();}
+    catch (Exception e)		// javadoc says IOException causes compile fail
+      {System.out.println("OWT  socket writer close failed for port "
+                         +socketPort
+                         );
+      }
+    try {in.close();}
+    catch (IOException e)
+      {System.out.println("OWT  socket reader close failed for port "
+                         +socketPort
+                         );
+      }
+    try {socket.close();}
+    catch (IOException e)
+      {System.out.println("OWT  socket close failed for port "
+                         +socketPort
+                         );
+      }
+    os.removeListener(this);
+    return;
    }
 
 
-
-  public void update(Observable ob,Object obj)
+  @Override
+  public void propertyChange(PropertyChangeEvent e)
 /***********************************************************************
 * invoked whenever changes occur to obs status. convert flags to a 
 * string and send them to the client
 ***********************************************************************/
-   {String s = os.getAll();
-    if (tracer) System.out.println("OWT.update("+s+") "+socket.toString());
-    out.println(s);
+   {String s1 = (String)e.getNewValue();
+    if (tracer) System.out.println("OWT.propertyChange"+s1+") "+socket.toString());
+
+//  *****************  start remove code after testing  *********
+    String s2 = os.getAll();
+    if (!s1.equals(s2))
+     {if (tracer)
+       {System.out.println(socketPort
+            +"OWT.update() observed data does not match retrieved data"
+        );
+        System.out.println("  observed  ["+s1+"]");
+        System.out.println("  retrieved ["+s2+"]");
+       }
+     }
+//  *****************  end   remove code after testing  *********
+
+    out.println(s1);
    }  
 
 
