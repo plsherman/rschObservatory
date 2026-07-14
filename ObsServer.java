@@ -92,7 +92,7 @@ public class ObsServer
 
  private static void initializeVoltmeter()
   {try
-    {Process p = Runtime.getRuntime().exec("sudo readit.py 1");
+    {Process p = Runtime.getRuntime().exec(new String[]{"sudo readit.py","1"});
      BufferedReader stdInput = new BufferedReader(new 
                  InputStreamReader(p.getInputStream()));
      String voltage = stdInput.readLine();
