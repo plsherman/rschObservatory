@@ -50,18 +50,27 @@ import java.text.SimpleDateFormat;
 public class ObsClientGUI
 {PrintWriter out;
  public static boolean tracer = false;
- static boolean gui = false, waitingForServer = false;
- static String hostName = "";
- static int portNumber = 0;
- public static int readWaitCountMax = 100000, readWaitCount = 0, readWaitShort = 5;
+ static boolean gui = false, waitForServerResponse = false;
+ static String hostName = "127.0.0.1";    // default local computer server
+ static int portNumber = 8080;
+ public static int readWaitResponse = 3000
+                  ,readWaitUnsolicited = 186400000
+                  ,readWaitCurrent = 3000
+                  ,readWaitCountMax = 100000
+                  ,readWaitCount = 0
+                  ,readWaitLoopStart = 0
+                  ,messageHoldTime = 5000       // message guarantee visible
+                  ,resetSocketCountMax = 1      // maximum # retries without a good read
+                  ,resetSocketCount = resetSocketCountMax
+                  ;
  static ObsStatus os = new ObsStatus();
- static      BufferedReader in;
+ static BufferedReader in;
  static Socket socket;
  String errorMessage = "";
  String parkedWord = "";
  private static final String
 	 securityCode = "d43909dbd40f9e6861e2676945e74992"
-
+   ,waitingMessage = "Waiting for server response"
 	;
  private static MyButtonHandler bh1;
  private static JFrame applFrame;
@@ -125,52 +134,42 @@ public class ObsClientGUI
      portNumber = 8080;
      gui = true;
      System.out.println("No parms; using:   127.0.0.1 8080");
-     System.out.println("  parms: [<host_name> <port>]  [gui] [trace]");
-    }
-   else if (args.length >1)
-    {hostName = args[0];
-     portNumber = Integer.parseInt(args[1]);
-     if (args.length > 2)
-      {for (int i = 1; i<args.length; i++)
-        {if ("GUI".equals(args[i].toUpperCase()))
-           gui = true;
-         else if ("TRACE".equals(args[i].toUpperCase()))
-	   tracer = true;
-	}
-      }
-    }
-   else if ((args.length == 1) && ("GUI".equals(args[0])))
-    {gui = true;
-     hostName = "127.0.0.1";
-     portNumber = 8080;
+     System.out.println("  parms: [<host_name>] [<port>]  [gui] [trace]");
     }
    else
-    {System.err.println("Usage: java ObsClientGUI <host name> <port number> [trace]");
-     System.exit(1);
+    {System.out.println("processing parms");
+     for (String arg : args)
+      {arg = arg.toUpperCase();
+       try {portNumber = Integer.parseInt(arg);
+            continue;
+           }
+       catch(NumberFormatException e) {}
+       if (arg.equals("GUI"))
+         gui = true;
+       else if (arg.equals("TRACE"))
+         tracer = true;
+       else
+         hostName = arg;
+      }
     }
    ObsClientGUI oc = new ObsClientGUI();
    if (gui)
-    {
- 
-     applFrame = new JFrame("ObservatoryControl");
+    {applFrame = new JFrame("ObservatoryControl");
      applFrame.setSize(800,700);
      applFrame.setResizable(true);
      applFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
      oc.init() ;
      oc.start();
 //    applFrame.pack();
      applFrame.setVisible(true);
     }
-
+   oc.resetSocket();    
    oc.clientProcess();
   }
 
   public void start() {
     return;
     }
-
-
 
   public void init()
    {if (tracer) System.out.println("OCG.init()");
@@ -182,11 +181,330 @@ public class ObsClientGUI
     buildButtonPanels();
    }
 
+
+
+ private String resetSocket()
+  {if (tracer)
+    {System.out.println("OCG.resetSocket() count="+resetSocketCount);
+     System.out.println("  ["+hostName+"] ["+portNumber+"]");
+    }
+   String fromServer = null;
+   if (--resetSocketCount < 0)
+    {System.out.println("too many unsuccessfull connect attempts - terminating");
+     System.exit(1);
+    }
+
+   if (socket != null)              // does nothing if not open
+    {try {socket.close();}
+     catch (IOException e)
+      {System.out.println("  Unable to close open socket - restrart program");
+       System.exit(1);
+      }
+    }
+
+   try 
+    {socket = new Socket(hostName, portNumber);
+     out = new PrintWriter(socket.getOutputStream(), true);
+     out.println(securityCode);
+     in = new BufferedReader(
+                new InputStreamReader(socket.getInputStream()));
+    }
+   catch (SocketException e)
+    {System.out.println("OCG - Unable to [re]build socket connection");
+     System.out.println(e);
+     System.exit(1);
+    }
+   catch (Exception e)
+    {System.out.println("  exception from rebuild socket\n"+e);
+     System.exit(1);
+    }
+
+   try {socket.setSoTimeout(100);}    // reads confined to data available to read
+   catch (SocketException e) 
+    {System.out.println("  Unable to set socket timeout");
+     System.exit(1);
+    }
+
+   try 
+    {fromServer = in.readLine();      // read single space from server
+     if (tracer) System.out.println("  Server response: [" + fromServer+"]");
+    }
+   catch (Exception e)
+    {System.out.println("  initial read from socket failed\n  "+e);
+     if (gui)
+      {sendErrorMessage("Connection with server not established"); 
+      }
+    }
+   try{out.println("98");}                  // request refresh data
+/*  Docs say IOException but compiler says not   
+   catch (IOException e)
+    {System.out.println("OCG.resetSocket() Socket IOError writing refresh request\n"+e);
+     System.out.println(e);
+     System.exit(1);
+    }
+*/
+   catch (Exception e)
+    {System.out.println("OCG.resetSocket() Socket IOError writing refresh request\n"+e);
+     System.exit(1);
+    }
+       
+   waitForServerResponse = true;      // status response waiting
+   readWaitCurrent = readWaitResponse;
+   return fromServer;
+  }
+  
+
+
+
+
+
+
+// requires throws to support loop in.ready() call without try/catch
+ public void clientProcess() throws IOException
+  {if (tracer) System.out.println("OCG.clientProcess()");
+   ObsClientConsoleReader occr = new ObsClientConsoleReader();
+     String fromServer = "";
+     String fromUser = "";
+     String sb = "0";
+   int 
+       readCheckInterval = 100   // must satisfy 1000=(int)x*interval
+      ,readWaitCurrentSecs = readWaitCurrent/1000
+      ,readWaitResponseSecs = readWaitResponse/1000
+      ;     
+     
+   BufferedReader stdIn =
+	    new BufferedReader(new InputStreamReader(System.in));
+   occr.setReader(stdIn);
+   occr.start();
+
+
+/* This routine reads data from the socket. a timeout within a loop is
+   used to detect missing responses from the server. The loop will be set
+   to a short interval when a server response is expected and 24 hours to support receipt
+   of server messages that are generated from other sources. When a command that
+   should have a response is sent to the server, the count is set to a few seconds.
+   When no response has been received to the command, the socket is closed and 
+   reopened. The command is NOT resent. The user needs to recognize that the 
+   command was not received by the following happening:
+    1. "Waiting for server response" message appears for a few seconds
+    2. Toggle does not change state after the waiting message disappears
+    3. An error message appears for a few seconds 
+*/
+
+   while (true)
+    {readWaitCurrentSecs = readWaitCurrent/60;   // integer divide
+     readWaitLoopStart = readWaitCurrent;
+     while(!in.ready())
+      {// System.out.println("current, response "+readWaitCurrent+" "+readWaitResponse+" "+waitForServerResponse);
+       if (waitForServerResponse & (readWaitCurrent > readWaitResponse))
+        {readWaitCurrent = readWaitResponse;  //reset response wait time
+         readWaitCurrentSecs = readWaitCurrent/60;   // integer divide
+         readWaitLoopStart = readWaitCurrent;
+        } 
+        
+       try {Thread.sleep(readCheckInterval);}
+       catch(InterruptedException e)
+        {System.out.println("OCG.clientProcess() sleep timer interrupt");}
+ 
+       if (tracer)
+        {if ((readWaitCurrent <= readWaitResponse)
+             & (((readWaitLoopStart - readWaitCurrent)/readCheckInterval)%(1000/readCheckInterval) == 0)
+            )
+           System.out.println("     "+readWaitCurrent);
+         else if (((readWaitLoopStart - readWaitCurrent)/readCheckInterval)%(60000/readCheckInterval) == 0) // 60000 = 1/min
+           System.out.println("     "+readWaitCurrent);
+        }
+
+
+       readWaitCurrent -= readCheckInterval;
+       if (readWaitCurrent > 0)
+         continue;
+       else
+        {sendErrorMessage("Timeout waiting for server - reconnecting");
+         System.out.println("Read from server timed out; reconnecting");
+         resetSocket();
+         panelMessage.setText("");     // no delay clear sendErrorMessage()
+         continue;
+        }
+      }   
+
+     try {fromServer = in.readLine();}
+     catch (SocketTimeoutException e)   // should never happen - see above
+      {System.out.println("OCG.clientProcess(): Impossible socket read timeout error\n"+e);
+       System.exit(1);
+      }
+     catch (IOException e)
+      {System.out.println("OCG.clientProcess() IO error reading data from host");
+       System.exit(1);
+      }
+
+     if (fromServer == null)   // s/b socket closed by server
+      {System.out.println("OCG.clientProcess() major program/system error"
+             +"\n    received null response from server");
+       System.exit(1);
+      }
+    resetSocketCount = resetSocketCountMax;     // successful read - socket ok
+    if (tracer) System.out.println("   Server response: [" + fromServer+"]");
+
+    if (fromServer.equals("quit"))
+      break;
+	 if (tracer)
+	   sb = "1";
+	 else
+	   sb = "0";
+	 fromServer = sb.concat(fromServer.substring(1));
+    sendErrorMessage("");
+    waitForServerResponse = false;
+    readWaitCurrent = readWaitUnsolicited;
+    if (gui)
+	   updatePanels();
+    else
+      displayUpdatedStatus();
+    }
+
+  }
+
+ public void processUserInput(String userIn)
+  {if (tracer) System.out.println("OC.processUserInput '"+userIn+"'");
+   lastUserInput = userIn;
+
+   if (userIn.equals("1") | userIn.equals("2"))
+    {if ((os.getScope1Parked() & os.getScope2Parked()
+		& os.getScope3Parked())
+         | os.getOverrideScopesParked()
+         | (!os.getScopesParkedPowerOn())
+        )
+      {try {out.println(userIn);}			// send to server
+       catch (Exception e) {System.out.println(e);}
+       readWaitCurrent = readWaitResponse;
+       waitForServerResponse = true;
+      }
+     else
+      {sendErrorMessage("Scopes not parked - cannot move roof");
+      }
+    }
+   else
+    {try {out.println(userIn);}			// send to server
+     catch (Exception e) {System.out.println("   error writing to server\n"+e);}
+     if (tracer) System.out.println("sent server code ["+userIn+"]");  
+     if (userIn.equals("5")|userIn.equals("12")|userIn.equals("14")
+         | userIn.equals("99")
+        )
+       {}
+     else
+      {readWaitCurrent = readWaitResponse;
+       waitForServerResponse = true;
+       sendErrorMessage(waitingMessage);
+      }
+    }
+   if (userIn.equals("99"))
+     System.exit(0);
+  }
+
+ private void displayUpdatedStatus()
+  {if (tracer) System.out.println("OC.displayUpdatesStatus()");
+   for (int i=0;i<12;i++)
+     System.out.println("");
+   System.out.println(errorMessage);
+   waitForServerResponse = false;
+   errorMessage = "";
+/*
+   try {Runtime.getRuntime().exec("/usr/bin/clear");}	// clear the screen
+   catch (IOException e) {System.out.println("clear console error:");
+			  System.out.println(e);
+			 }
+*/
+   String s1 ="", s2 = "";
+
+   if (os.getRoofOpen()) s1 = "Roof is     open";
+   else 		 s1 = "Roof is not open";
+   if (os.getRoofOpening()) s2 = "Roof is     opening";
+   else			    s2 = "Roof is not opening";
+   System.out.println(s1+"\t"+"\t"+"\t"+s2);
+
+   if (os.getRoofClosed()) s1 = "Roof is     closed";
+   else			   s1 = "Roof is not closed";
+   if (os.getRoofClosing()) s2 = "Roof is     closing";
+   else			    s2 = "Roof is not closing";
+   System.out.println(s1+"\t"+"\t"+"\t"+s2);
+// System.out.println("");
+
+   if (os.getScopesParkedPowerOn())
+     parkedWord = "parked";
+   else
+     parkedWord = "\t";
+   if (os.getScope1Parked() |(!os.getScopesParkedPowerOn()))
+     s1 = "Scope 1 is     ";
+   else		 	     s1 = "Scope 1 is not ";
+   s1 = s1+parkedWord;
+   s2 = "Override scopes parked is: ";
+   if (os.getOverrideScopesParked())	s2 = s2+"TRUE";
+   else					s2 = s2+"FALSE";
+   System.out.println(s1+"\t"+"\t"+"\t"+s2);
+
+   if (os.getScope2Parked() |(!os.getScopesParkedPowerOn()))
+     s1 = "Scope 2 is     ";
+   else			     s1 = "Scope 2 is not ";
+   s1 = s1+parkedWord;
+   s2 = "AC power available: ";
+   if (os.getAcPowerAvailable()) s2 = s2+"YES";
+   else				 s2 = s2+"NO";
+   System.out.println(s1+"\t"+"\t"+"\t"+s2);
+   if (os.getScope3Parked() |(!os.getScopesParkedPowerOn()))
+     s1 = "Scope 3 is     ";
+   else			      s1 = "Scope 3 is not ";
+   s1 = s1+parkedWord;
+   System.out.println(s1+"\t"+"\t");
+// System.out.println("");
+   
+   if (os.getScope1aPoweredUp()) s1 = "Abe  scope  is     powered up";
+   else				 s1 = "Abe  scope  is not powered up";
+   s2 = "Room lights are ";
+   if (os.getLightsOn()) s2 = s2+"on";
+   else			 s2 = s2+"off";
+   System.out.println(s1+"\t\t"+s2);
+
+   if (os.getScope1bPoweredUp()) s1 = "Abe  camera is     powered up";
+   else				 s1 = "Abe  camera is not powered up";
+   s2 = "Scopes parked sensors have power: ";
+   if (os.getScopesParkedPowerOn())
+        s2 = s2 + "YES";
+   else s2 = s2 + "NO";
+   System.out.println(s1+"\t\t"+s2);
+
+   if (os.getScope2PoweredUp())  s1 = "Phil scope  is     powered up";
+   else				 s1 = "Phil scope  is not powered up";
+   if (os.getComputer1PoweredUp())  s2 = "Ethernet   is     powered up";
+   else				 s2 = "Ethernet   is not powered up";
+   System.out.println(s1+"\t\t"+s2);
+
+   if (os.getScope3PoweredUp())  s1 = "Scope 3     is     powered up";
+   else				 s1 = "Scope 3     is not powered up";
+   if (os.getNASPoweredUp())  s2 = "Backup drv is     powered up";
+   else				 s2 = "Backup drv is not powered up";
+   System.out.println(s1+"\t\t"+s2);
+
+   System.out.println(""); 
+   System.out.println("     Enter a command");
+   System.out.println(" 1 Open  roof			 4 Toggle scope safe bypass");
+   System.out.println(" 2 Close roof			 5 Push inverter power button");
+   System.out.println(" 3 Stop  roof");
+   System.out.println("");
+   System.out.println(" 6 Toggle Abe scope  power        8 Toggle scopes parked power");
+   System.out.println(" 7 Toggle Abe camera power        9 Toggle Phil scope power");
+
+   System.out.println("10 Toggle Scope 3 power          11 Toggle ethernet  power");
+   System.out.println("12 Wake up Abe computer          13 Toggle backup drive power");
+   System.out.println("14 Wake up Phil computer         15 Toggle lights");
+   System.out.println("98 Refresh display               99 Exit program");
+   System.out.println(""); 
+  }
+
+
  private void updatePanels()
   {if (tracer) System.out.println("OCG.updatePanels");
-   waitingForServer = false;
-   errorMessage = "";
-   updatePanelMessage();
+   waitForServerResponse = false;
+   sendErrorMessage("");
 
    if (os.getComputer1PoweredUp())
      electronics1.setSelected(true);
@@ -272,12 +590,17 @@ public class ObsClientGUI
   }
 
 
- public void updatePanelMessage()
-  {if (tracer) System.out.println("OCG.updatePanelMessage()");
-   if (waitingForServer)
-     panelMessage.setText(errorMessage);
-   else
-     panelMessage.setText(""); 
+ public void sendErrorMessage(String msgText)
+  {if (tracer) System.out.println("OCG.sendErrorMessage ["+msgText+"]");
+   errorMessage = msgText;       // compatibility with older versions of code
+   if (gui)
+    {panelMessage.setText(msgText);
+     if (!msgText.equals(waitingMessage))            // not needed for waiting message  
+      {try {Thread.sleep(messageHoldTime);}          // guarantee 3 secs visibility
+       catch(InterruptedException e) {}
+      }
+    }
+   System.out.println(errorMessage);
   }
 
 
@@ -464,281 +787,6 @@ public class ObsClientGUI
    panelMessage.setFont(textFontBold);
    applPanel.add(panelMessage);
   } 
-
- private String resetSocket()
-  {if (tracer) System.out.println("OCG.resetSocket()");
-   String fromServer = null;
-
-   if (socket != null)
-    {try {socket.close();}
-     catch (IOException e) {}
-    }
-
-   try 
-    {socket = new Socket(hostName, portNumber);
-     out = new PrintWriter(socket.getOutputStream(), true);
-     out.println(securityCode);
-     in = new BufferedReader(
-                new InputStreamReader(socket.getInputStream()));
-    }
-   catch (SocketException e)
-    {System.out.println("OCG - Unable to [re]build socket connection");
-     System.out.println(e);
-     System.exit(8);
-    }
-   catch (Exception e) {}
-   fromServer = "";
-
-   try 
-    {fromServer = in.readLine();
-     readWaitCount = readWaitCountMax;
-     if (tracer) System.out.println(" resetSocket()  Server response: " + fromServer);
-    }
-   catch (Exception e)
-    {// if (tracer)
-      {System.out.println("OCG.clientProcess(socket fail)");
-       System.out.println('\n'); System.out.println(e);
-       if (gui)
-         errorMessage = "Connection with server not established";
-	 updatePanelMessage(); 
-	 try {Thread.sleep(2000);}
-         catch (Exception e1) {}	
-      }
-    }
-
-   try {socket.setSoTimeout(1000);}
-   catch (SocketException e)
-    {System.out.println("Unable to set socket timeout");
-     System.exit(8);
-    }
-   return fromServer;
-  }
-
- public void clientProcess()
-  {if (tracer) System.out.println("OCG.clientProcess()");
-   ObsClientConsoleReader occr = new ObsClientConsoleReader();
-     String fromServer = "";
-     String fromUser = "";
-     String sb = "0";
-
-   fromServer = resetSocket();
-   BufferedReader stdIn =
-	new BufferedReader(new InputStreamReader(System.in));
-   occr.setReader(stdIn);
-   occr.start();
-
-
-/* This routine reads data from the socket. a 1 second timeout within a loop is
-   used to detect missing responses from the server. The loop will normally sit
-   forever because the initial counter is larger than 24 hours to support receipt
-   of server messages that are generated from other sources. When a command that
-   should have a response is sent to the server, the count is set to a few seconds.
-   When no response has been received to the command, the socket is closed and 
-   reopened. The command is NOT resent. The user needs to recognize that the 
-   command was not received by the following happening:
-    1. "Waiting for server response" message appears for a few seconds
-    2. Toggle does not change state after the waiting message disappears
-   If the command was a button, there's no way to detect if the command was
-   received at the server and processed.
-*/
-   while (true)
-    {if (fromServer.equals(""))
-      {while (readWaitCount-- > 0)
-        {if (tracer)
-           if ((readWaitCount > (readWaitCountMax-5))|(readWaitCount < 10)
-		| (((readWaitCount/30)*30) == readWaitCount)
-	      )
-            {System.out.println("   loopCt "+readWaitCount+" "+
-				sdf.format(new Date())
-				);
-	    }
-         try {fromServer = in.readLine();}
-         catch (SocketTimeoutException e)
-	  {if (readWaitCount <= 0)
-	    {fromServer = resetSocket();
-	     break;
-	    }
-	   else
-	     continue;
-	  }
-         catch (IOException e)
-	   {System.out.println("IO error reading data from host");
-	    System.exit(8);
-	   }
-         if (fromServer.equals(""))
-           continue;
-         else
-          {readWaitCount = readWaitCountMax;
-	   break;
-          }
-        }
-      }
-         if (tracer) 
-	   {System.out.println("   Server response: " + fromServer);
-	    System.out.println(" test output");
-	   }	
-
-         if (fromServer == null)
-           System.exit(0);
-         if (fromServer.equals("quit"))
-           break;
-	 if (tracer)
-	   sb = "1";
-	 else
-	   sb = "0";
-	 fromServer = sb.concat(fromServer.substring(1));
-         os.setAll(fromServer);
-         fromServer = "";
-         if (gui)
-	   updatePanels();
-         else
-           displayUpdatedStatus();
-    }
-
-  }
-
- public void processUserInput(String userIn)
-  {if (tracer) System.out.println("OC.processUserInput '"+userIn+"'");
-   lastUserInput = userIn;
-
-   if (userIn.equals("1") | userIn.equals("2"))
-    {if ((os.getScope1Parked() & os.getScope2Parked()
-		& os.getScope3Parked())
-         | os.getOverrideScopesParked()
-         | (!os.getScopesParkedPowerOn())
-        )
-      {try {out.println(userIn);}			// send to server
-       catch (Exception e) {System.out.println(e);}
-       readWaitCount = readWaitShort;
-       waitingForServer = true;
-      }
-     else
-      {errorMessage = "Scopes not parked - cannot move roof";
-
-       if (gui)
-         updatePanelMessage();
-       else 
-         System.out.println(errorMessage);
-      }
-    }
-   else
-    {out.println(userIn);				// send to server
-     if (userIn.equals("5")|userIn.equals("12")|userIn.equals("14")
-         | userIn.equals("99")
-        )
-       {}
-     else
-      {readWaitCount = readWaitShort;
-       errorMessage = "Waiting for server response";
-       waitingForServer = true;
-       if (gui)
-         updatePanelMessage();
-       else
-         System.out.println(errorMessage);
-      }
-    }
-   if (userIn.equals("99"))
-     System.exit(0);
-  }
-
- private void displayUpdatedStatus()
-  {if (tracer) System.out.println("OC.displayUpdatesStatus()");
-   for (int i=0;i<12;i++)
-     System.out.println("");
-   System.out.println(errorMessage);
-   waitingForServer = false;
-   errorMessage = "";
-/*
-   try {Runtime.getRuntime().exec("/usr/bin/clear");}	// clear the screen
-   catch (IOException e) {System.out.println("clear console error:");
-			  System.out.println(e);
-			 }
-*/
-   String s1 ="", s2 = "";
-
-   if (os.getRoofOpen()) s1 = "Roof is     open";
-   else 		 s1 = "Roof is not open";
-   if (os.getRoofOpening()) s2 = "Roof is     opening";
-   else			    s2 = "Roof is not opening";
-   System.out.println(s1+"\t"+"\t"+"\t"+s2);
-
-   if (os.getRoofClosed()) s1 = "Roof is     closed";
-   else			   s1 = "Roof is not closed";
-   if (os.getRoofClosing()) s2 = "Roof is     closing";
-   else			    s2 = "Roof is not closing";
-   System.out.println(s1+"\t"+"\t"+"\t"+s2);
-// System.out.println("");
-
-   if (os.getScopesParkedPowerOn())
-     parkedWord = "parked";
-   else
-     parkedWord = "\t";
-   if (os.getScope1Parked() |(!os.getScopesParkedPowerOn()))
-     s1 = "Scope 1 is     ";
-   else		 	     s1 = "Scope 1 is not ";
-   s1 = s1+parkedWord;
-   s2 = "Override scopes parked is: ";
-   if (os.getOverrideScopesParked())	s2 = s2+"TRUE";
-   else					s2 = s2+"FALSE";
-   System.out.println(s1+"\t"+"\t"+"\t"+s2);
-
-   if (os.getScope2Parked() |(!os.getScopesParkedPowerOn()))
-     s1 = "Scope 2 is     ";
-   else			     s1 = "Scope 2 is not ";
-   s1 = s1+parkedWord;
-   s2 = "AC power available: ";
-   if (os.getAcPowerAvailable()) s2 = s2+"YES";
-   else				 s2 = s2+"NO";
-   System.out.println(s1+"\t"+"\t"+"\t"+s2);
-   if (os.getScope3Parked() |(!os.getScopesParkedPowerOn()))
-     s1 = "Scope 3 is     ";
-   else			      s1 = "Scope 3 is not ";
-   s1 = s1+parkedWord;
-   System.out.println(s1+"\t"+"\t");
-// System.out.println("");
-   
-   if (os.getScope1aPoweredUp()) s1 = "Abe  scope  is     powered up";
-   else				 s1 = "Abe  scope  is not powered up";
-   s2 = "Room lights are ";
-   if (os.getLightsOn()) s2 = s2+"on";
-   else			 s2 = s2+"off";
-   System.out.println(s1+"\t\t"+s2);
-
-   if (os.getScope1bPoweredUp()) s1 = "Abe  camera is     powered up";
-   else				 s1 = "Abe  camera is not powered up";
-   s2 = "Scopes parked sensors have power: ";
-   if (os.getScopesParkedPowerOn())
-        s2 = s2 + "YES";
-   else s2 = s2 + "NO";
-   System.out.println(s1+"\t\t"+s2);
-
-   if (os.getScope2PoweredUp())  s1 = "Phil scope  is     powered up";
-   else				 s1 = "Phil scope  is not powered up";
-   if (os.getComputer1PoweredUp())  s2 = "Ethernet   is     powered up";
-   else				 s2 = "Ethernet   is not powered up";
-   System.out.println(s1+"\t\t"+s2);
-
-   if (os.getScope3PoweredUp())  s1 = "Scope 3     is     powered up";
-   else				 s1 = "Scope 3     is not powered up";
-   if (os.getNASPoweredUp())  s2 = "Backup drv is     powered up";
-   else				 s2 = "Backup drv is not powered up";
-   System.out.println(s1+"\t\t"+s2);
-
-   System.out.println(""); 
-   System.out.println("     Enter a command");
-   System.out.println(" 1 Open  roof			 4 Toggle scope safe bypass");
-   System.out.println(" 2 Close roof			 5 Push inverter power button");
-   System.out.println(" 3 Stop  roof");
-   System.out.println("");
-   System.out.println(" 6 Toggle Abe scope  power        8 Toggle scopes parked power");
-   System.out.println(" 7 Toggle Abe camera power        9 Toggle Phil scope power");
-
-   System.out.println("10 Toggle Scope 3 power          11 Toggle ethernet  power");
-   System.out.println("12 Wake up Abe computer          13 Toggle backup drive power");
-   System.out.println("14 Wake up Phil computer         15 Toggle lights");
-   System.out.println("98 Refresh display               99 Exit program");
-   System.out.println(""); 
-  }
      	
 
 public class ObsClientConsoleReader extends Thread
@@ -779,7 +827,6 @@ class MyButtonHandler implements ActionListener
   public void actionPerformed(ActionEvent e)
    {String ac = e.getActionCommand();
     if (oc.tracer) System.out.println("OCG_BH.actionPerformed("+ac+")");
-//    System.out.println(oc.parkOverride.isSelected());   
     if (ac.equals("b01"))
      {if (oc.tracer) System.out.println("  Open roof");
       oc.processUserInput("1");
@@ -849,11 +896,8 @@ class MyButtonHandler implements ActionListener
       oc.processUserInput("5");
      }
     else
-     {System.out.println("    Unknown action command: "+ac);
-      if (oc.errorMessage.equals(""))
-       {oc.errorMessage = "    Unknown action command: "+ac;
-        oc.updatePanelMessage();
-       }
+     {System.out.println("    Unknown action command: ["+ac+"]");
+        oc.sendErrorMessage("Unknown action command: ["+ac+"]");
      }
    }
 

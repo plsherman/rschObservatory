@@ -6,7 +6,7 @@
 *
 * Input commands from the user will be numbers, indicating what function is to be
 * performed
-* 
+*
 * 01 - open the roof
 * 02 - close the roof
 * 03 - stop the roof
@@ -39,7 +39,7 @@
 **********************************************************************
  REMOVE s2 CODE IF NO TESTING ERRORS  source code lines @215+
 **********************************************************************
-*/ 
+*/
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.net.*;
@@ -51,7 +51,7 @@ public class ObsWorkerThread extends Thread implements PropertyChangeListener
  {private Socket socket = null;
   private ObsControl oc;
   private ObsStatus  os;
-  private int socketTimeout = 1000	// time in milliseconds
+  private int socketTimeout = 1000      // time in milliseconds
              ,useCount      = 0
              ,requestNum    = 0
              ,socketPort   = 0
@@ -59,10 +59,10 @@ public class ObsWorkerThread extends Thread implements PropertyChangeListener
   private PrintWriter out;
   private BufferedReader in;
   private static final
-	String securityCode = "d43909dbd40f9e6861e2676945e74992";
+        String securityCode = "d43909dbd40f9e6861e2676945e74992";
   private static boolean tracer = false;
   private DateTimeFormatter dtf = DateTimeFormatter.ofPattern("HH:mm:ss");
-  
+
   public ObsWorkerThread(Socket socket,ObsControl oc, ObsStatus os)
    {super("ObsWorkerThread");
     this.socket = socket;
@@ -75,111 +75,112 @@ public class ObsWorkerThread extends Thread implements PropertyChangeListener
    {if (tracer) System.out.println("OWT connected to: "+socket.getInetAddress()
            +":"+socket.getPort()+" at "+LocalTime.now().format(dtf)
                                   );
-      os.addListener(this); 
+      if (tracer) System.out.println("  this id ["+this+"]");
+      os.addListener(this);
       socketPort = socket.getPort();
 
     try
      {out = new PrintWriter(socket.getOutputStream(), true);
-      out.println("");			// prime output queue
+      out.println("");                  // prime output queue
       in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
       String inputLine = "", outputLine = "";
 
-      int requestNum = 0;		// input from client is number <= 99
+      int requestNum = 0;               // input from client is number <= 99
       boolean continueProcessing = true;
-      socket.setSoTimeout(socketTimeout);	// short delay for security code 
+      socket.setSoTimeout(socketTimeout);       // short delay for security code
       try {inputLine = in.readLine();}
       catch (SocketTimeoutException e)
        {System.out.println("OWT security code not received in time");
        }
-      if (!inputLine.equals(securityCode))	// check for valid client
+      if (!inputLine.equals(securityCode))      // check for valid client
        {continueProcessing = false;
         System.out.println("OWT bad scty code - disconnected ["+inputLine+"]");
         inputLine = "Bad security code - disconnected";
        }
-      socket.setSoTimeout(0);			// allow infinite wait
+      socket.setSoTimeout(0);                   // allow infinite wait
       while (continueProcessing)
        {try {inputLine = in.readLine();}
         catch (SocketTimeoutException e)
          {}
-        if (inputLine == null)			// remote pgm disconnected
-          break; 
+        if (inputLine == null)                  // remote pgm disconnected
+          break;
         if (inputLine.equals("quit"))
           break;
 
         try {requestNum = Integer.parseInt(inputLine);}
         catch (NumberFormatException e)
-	 {requestNum = 0;
+         {requestNum = 0;
          }
 
-	if ((tracer) & (requestNum != 0))
-	  System.out.println("OWT worker thread has request :"+requestNum);
- 
+        if ((tracer) & (requestNum != 0))
+          System.out.println("OWT worker thread has request :"+requestNum);
+
        switch (requestNum)
-	 {case 0: break;
+         {case 0: break;
           case 1:
-	    oc.openRoof();
-	    break;
-	  case 2:
-	    oc.closeRoof();
-	    break;
-	  case 3:
-	    oc.stopRoof();
-	    break;
-	  case 4:
-	    if (os.getOverrideScopesParked())
-	      oc.setOverrideScopesParked(false);
-	    else
-	      oc.setOverrideScopesParked(true);
-	    break;
-	  case 5:
-	    oc.pushInverterPowerButton();
-	    break;
-	  case 6:
-	    oc.togglePowerS1R1();
-	    break;
-	  case 7:
-	    oc.togglePowerS1R2();
-	    break;
-	  case 8:
-	    oc.toggleScopesParkedPower();
-	    break;
-	  case 9:
-	    oc.togglePowerS2();
-	    break;
-	  case 10:
-	    oc.togglePowerS3();
-	    break;
-	  case 11:
-	    oc.togglePowerComputer1();
-	    break;
-	  case 12:
-	    oc.wakeUp("Abe");
-	    break;
-	  case 13:
-	    oc.togglePowerNAS();
-	    break;
-	  case 14:
-	    oc.wakeUp("Phil");
-	    break;
-	  case 15:
-	    oc.toggleLights();
-	    break;
-	  case 98:
-	    refresh();
-	    break;
-	  case 99:
-	    continueProcessing = false;
-	    break;
-	  default:
-	    System.out.println("OWT.run() unknown user request: "+requestNum);
-	    break;
-	 }
-        requestNum = 0; 
+            oc.openRoof();
+            break;
+          case 2:
+            oc.closeRoof();
+            break;
+          case 3:
+            oc.stopRoof();
+            break;
+          case 4:
+            if (os.getOverrideScopesParked())
+              oc.setOverrideScopesParked(false);
+            else
+              oc.setOverrideScopesParked(true);
+            break;
+          case 5:
+            oc.pushInverterPowerButton();
+            break;
+          case 6:
+            oc.togglePowerS1R1();
+            break;
+          case 7:
+            oc.togglePowerS1R2();
+            break;
+          case 8:
+            oc.toggleScopesParkedPower();
+            break;
+          case 9:
+            oc.togglePowerS2();
+            break;
+          case 10:
+            oc.togglePowerS3();
+            break;
+          case 11:
+            oc.togglePowerComputer1();
+            break;
+          case 12:
+            oc.wakeUp("Abe");
+            break;
+          case 13:
+            oc.togglePowerNAS();
+            break;
+          case 14:
+            oc.wakeUp("Phil");
+            break;
+          case 15:
+            oc.toggleLights();
+            break;
+          case 98:
+            refresh();
+            break;
+          case 99:
+            continueProcessing = false;
+            break;
+          default:
+            System.out.println("OWT.run() unknown user request: "+requestNum);
+            break;
+         }
+        requestNum = 0;
         if (continueProcessing)
-	  inputLine = "";
-	else
-	  inputLine = "quit";      
-       }				// end of while loop
+          inputLine = "";
+        else
+          inputLine = "quit";
+       }                                // end of while loop
 // *****************************  WHILE LOOP END  *******************
       out.println(inputLine);
       if (tracer) System.out.println("OWT disconnect from: "+socketPort
@@ -191,7 +192,7 @@ public class ObsWorkerThread extends Thread implements PropertyChangeListener
      }
 
     try {out.close();}
-    catch (Exception e)		// javadoc says IOException causes compile fail
+    catch (Exception e)         // javadoc says IOException causes compile fail
       {System.out.println("OWT  socket writer close failed for port "
                          +socketPort
                          );
@@ -216,7 +217,7 @@ public class ObsWorkerThread extends Thread implements PropertyChangeListener
   @Override
   public void propertyChange(PropertyChangeEvent e)
 /***********************************************************************
-* invoked whenever changes occur to obs status. convert flags to a 
+* invoked whenever changes occur to obs status. convert flags to a
 * string and send them to the client
 ***********************************************************************/
    {String s1 = (String)e.getNewValue();
@@ -236,13 +237,13 @@ public class ObsWorkerThread extends Thread implements PropertyChangeListener
 //  *****************  end   remove code after testing  *********
 
     out.println(s1);
-   }  
+   }
 
 
 
   public void refresh()
 /***********************************************************************
-* invoked whenever changes occur to obs status. convert flags to a 
+* invoked whenever changes occur to obs status. convert flags to a
 * string and send them to the client
 ***********************************************************************/
    {String s = os.getAll();

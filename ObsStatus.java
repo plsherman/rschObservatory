@@ -48,11 +48,13 @@ public class ObsStatus
 		= new PropertyChangeSupport(this);
 
  public void addListener(PropertyChangeListener listener)
-   {obsStatus.addPropertyChangeListener(listener);
-  }
+   {if (tracer) System.out.println("OS.addListener("+listener+")");
+      obsStatus.addPropertyChangeListener(listener);
+   }
 
 public void removeListener(PropertyChangeListener listener)
- {obsStatus.removePropertyChangeListener(listener);
+ {if (tracer) System.out.println("OS.removeListener("+listener+")");
+    obsStatus.removePropertyChangeListener(listener);
  }
 
 
@@ -168,12 +170,19 @@ public void removeListener(PropertyChangeListener listener)
  private void commonFunctions(boolean b)
   {if (tracer) System.out.println("OS.commonFunctions()");
    newStatus = getAll();
+// diagnostic code start **************************************
+if (tracer)
+ {System.out.println("   old status: "+oldStatus);
+  System.out.println("   new status: "+newStatus);
+ }
+// diagnostic code end   **************************************   
    if (oldStatus.equals(newStatus))
     {}
    else
     {saveStatus = oldStatus;
      oldStatus = newStatus;
-     obsStatus.firePropertyChange(flagsName,oldStatus,newStatus);
+     obsStatus.firePropertyChange(flagsName,saveStatus,newStatus);
+     if (tracer) System.out.println("    property change fired: "+newStatus);
     }
   }
 
@@ -204,17 +213,14 @@ public void removeListener(PropertyChangeListener listener)
  
    
   }
-
  public String getVoltage()
   {if (tracer) System.out.println("OS.getVoltage()");
    return voltage;
   }
-
  public void setTracer(boolean b)
   {if (tracer) System.out.println("OS.setTracer()");
    tracer = b;
   }
-
  public void setComputer1PoweredUp(boolean b)
   {if (tracer) System.out.println("OS.setComputer1PoweredUp("+b+")");
    computer1PoweredUp = b;
