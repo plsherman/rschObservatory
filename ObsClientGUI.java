@@ -60,7 +60,7 @@ public class ObsClientGUI
                   ,readWaitCount = 0
                   ,readWaitLoopStart = 0
                   ,messageHoldTime = 5000       // message guarantee visible
-                  ,resetSocketCountMax = 1      // maximum # retries without a good read
+                  ,resetSocketCountMax = 2      // maximum # retries+1 without a good read
                   ,resetSocketCount = resetSocketCountMax
                   ;
  static ObsStatus os = new ObsStatus();
@@ -70,7 +70,7 @@ public class ObsClientGUI
  String parkedWord = "";
  private static final String
 	 securityCode = "d43909dbd40f9e6861e2676945e74992"
-   ,waitingMessage = "Waiting for server response"
+   ,waitingMessage = "          Waiting for server response"
 	;
  private static MyButtonHandler bh1;
  private static JFrame applFrame;
@@ -232,7 +232,7 @@ public class ObsClientGUI
    catch (Exception e)
     {System.out.println("  initial read from socket failed\n  "+e);
      if (gui)
-      {sendErrorMessage("Connection with server not established"); 
+      {sendUserStatusMessage("Connection with server not established"); 
       }
     }
    try{out.println("98");}                  // request refresh data
@@ -320,10 +320,9 @@ public class ObsClientGUI
        if (readWaitCurrent > 0)
          continue;
        else
-        {sendErrorMessage("Timeout waiting for server - reconnecting");
-         System.out.println("Read from server timed out; reconnecting");
+        {sendUserStatusMessage("Timeout waiting for server - reconnecting");
          resetSocket();
-         panelMessage.setText("");     // no delay clear sendErrorMessage()
+         panelMessage.setText("");     // no delay clear sendUserStatusMessage()
          continue;
         }
       }   
@@ -353,13 +352,11 @@ public class ObsClientGUI
 	 else
 	   sb = "0";
 	 fromServer = sb.concat(fromServer.substring(1));
-    sendErrorMessage("");
+    os.setAll(fromServer);    // update local ObsStatus with current status 
+    sendUserStatusMessage("");
+    displayUpdatedStatus();
     waitForServerResponse = false;
     readWaitCurrent = readWaitUnsolicited;
-    if (gui)
-	   updatePanels();
-    else
-      displayUpdatedStatus();
     }
 
   }
@@ -368,50 +365,92 @@ public class ObsClientGUI
   {if (tracer) System.out.println("OC.processUserInput '"+userIn+"'");
    lastUserInput = userIn;
 
-   if (userIn.equals("1") | userIn.equals("2"))
-    {if ((os.getScope1Parked() & os.getScope2Parked()
-		& os.getScope3Parked())
-         | os.getOverrideScopesParked()
-         | (!os.getScopesParkedPowerOn())
-        )
-      {try {out.println(userIn);}			// send to server
-       catch (Exception e) {System.out.println(e);}
-       readWaitCurrent = readWaitResponse;
+   if (userIn.equals("1") | userIn.equals("2"))    // open,close roof request
+    {if (!os.getScopesParkedPowerOn())             // power needed to test scopes parked
+      {readWaitCurrent = readWaitResponse;
        waitForServerResponse = true;
+       sendUserStatusMessage(waitingMessage);
+       if (tracer) System.out.println("   turning on power for parked sensors");
+       try {out.println("8");}    // turn on parked sensors power
+       catch(Exception e)
+        {sendUserStatusMessage("  socket write [8] failed - reconnect to server");
+         System.out.println("  "+e);
+         resetSocket();
+         return;
+        }
+       while (readWaitCurrent <= readWaitResponse) // sensors powered up delay
+        {try {Thread.sleep(100);}
+         catch(InterruptedException e) {}
+        }
+      }
+     if ((os.getScope1Parked() & os.getScope2Parked()
+		        & os.getScope3Parked())
+         | os.getOverrideScopesParked()
+        )
+      {if (tracer) System.out.println("OC.processUserInput() open|close Processing");
+       processUserInput(userIn);    // process original 1|2 comand
+//       return;                      // ?not needed: no code not in 2nd else clause?
       }
      else
-      {sendErrorMessage("Scopes not parked - cannot move roof");
+      {sendUserStatusMessage("Scopes not parked - cannot move roof");
       }
     }
    else
-    {try {out.println(userIn);}			// send to server
-     catch (Exception e) {System.out.println("   error writing to server\n"+e);}
-     if (tracer) System.out.println("sent server code ["+userIn+"]");  
-     if (userIn.equals("5")|userIn.equals("12")|userIn.equals("14")
-         | userIn.equals("99")
-        )
-       {}
-     else
-      {readWaitCurrent = readWaitResponse;
-       waitForServerResponse = true;
-       sendErrorMessage(waitingMessage);
+    {readWaitCurrent = readWaitResponse;
+     waitForServerResponse = true;
+     sendUserStatusMessage(waitingMessage);
+     try {out.println(userIn);}			// send to server
+     catch (Exception e)
+      {System.out.println("   error writing ["+userIn+"] to server\n"+e);
+         
       }
+     
     }
    if (userIn.equals("99"))
      System.exit(0);
   }
+  
+  
+ public void sendUserStatusMessage(String msgText)
+  {if (tracer) System.out.println("OCG.sendUserStatusMessage ["+msgText+"]");
+   errorMessage = msgText;       // compatibility with older versions of code
+
+   if (!errorMessage.equals(""))
+     System.out.println(errorMessage);   // print msg when run from console
+
+   if (gui)
+    {panelMessage.setText(msgText);
+//     updatePanels();
+    }
+/*    
+   if (!(msgText.equals(waitingMessage)|msgText.equals("")))  // not needed for these 2 msgs  
+    {try {Thread.sleep(50);}      // guaranteed secs visibility
+     catch(InterruptedException e) {}
+     try {Thread.sleep(messageHoldTime);}      // guaranteed secs visibility
+     catch(InterruptedException e) {}
+    }
+*/
+  }
+
+
+  
 
  private void displayUpdatedStatus()
   {if (tracer) System.out.println("OC.displayUpdatesStatus()");
-   for (int i=0;i<12;i++)
+   if (gui)
+   {updatePanels();
+    return;
+   }
+   for (int i=0;i<12;i++)     // scroll up one page (12lines for cmd window)
      System.out.println("");
-   System.out.println(errorMessage);
+
    waitForServerResponse = false;
    errorMessage = "";
-/*
-   try {Runtime.getRuntime().exec("/usr/bin/clear");}	// clear the screen
-   catch (IOException e) {System.out.println("clear console error:");
+/*  alternative to printing 12 lines      
+   try {Runtime.getRuntime().exec(new String[] {"/usr/bin/clear")};}	// clear the screen
+   catch (IOException e) {System.out.println("  clear console error:");
 			  System.out.println(e);
+        clear the screen with println commands   
 			 }
 */
    String s1 ="", s2 = "";
@@ -503,8 +542,8 @@ public class ObsClientGUI
 
  private void updatePanels()
   {if (tracer) System.out.println("OCG.updatePanels");
-   waitForServerResponse = false;
-   sendErrorMessage("");
+//   waitForServerResponse = false;
+//   sendUserStatusMessage("");
 
    if (os.getComputer1PoweredUp())
      electronics1.setSelected(true);
@@ -587,20 +626,6 @@ public class ObsClientGUI
      scopeParked2.setText(unk);
      scopeParked3.setText(unk);
     }
-  }
-
-
- public void sendErrorMessage(String msgText)
-  {if (tracer) System.out.println("OCG.sendErrorMessage ["+msgText+"]");
-   errorMessage = msgText;       // compatibility with older versions of code
-   if (gui)
-    {panelMessage.setText(msgText);
-     if (!msgText.equals(waitingMessage))            // not needed for waiting message  
-      {try {Thread.sleep(messageHoldTime);}          // guarantee 3 secs visibility
-       catch(InterruptedException e) {}
-      }
-    }
-   System.out.println(errorMessage);
   }
 
 
@@ -896,8 +921,8 @@ class MyButtonHandler implements ActionListener
       oc.processUserInput("5");
      }
     else
-     {System.out.println("    Unknown action command: ["+ac+"]");
-        oc.sendErrorMessage("Unknown action command: ["+ac+"]");
+     {oc.sendUserStatusMessage("Unknown action command: ["+ac+"]");
+      oc.processUserInput("98");    // treat as refresh request
      }
    }
 

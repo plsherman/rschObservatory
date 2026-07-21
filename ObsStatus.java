@@ -8,6 +8,7 @@
   2026-06-13 PLS change computer2 to backupDrive, 
   2026-07-11 PLS add missing close() to readVoltage()
   2026-07-11 PLS chage Observable to beansProperty* 
+  2026-07-20 PLS add code to diagnose setAll(String) issues with ObsClient
 
 */
 import java.beans.PropertyChangeListener;
@@ -32,8 +33,29 @@ public class ObsStatus
 	,NASPoweredUp = false			// 14
 	,lightsOn = false			// 15
 	,scope3Parked = true			// 16
-	,scopesParkedPowerOn			// 17
+	,scopesParkedPowerOn = false		// 17
 	;
+
+ String[] flagNames =
+  { "tracer" 
+	,"roofOpen"
+	,"roofClosed"
+   ,"roofOpening"
+	,"roofClosing"
+	,"scope2Parked"
+	,"scope1Parked"
+	,"overrideScopesParked"
+	,"acPowerAvailable"
+	,"scope1aPoweredUp"
+	,"scope1bPoweredUp"
+	,"scope2PoweredUp"
+	,"scope3PoweredUp"
+	,"computer1PoweredUp"
+	,"NASPoweredUp"
+	,"lightsOn"
+	,"scope3Parked"
+	,"scopesParkedPowerOn"  
+  };
  int flagCount  = 16;
  int j = 0;
  boolean newState = false;
@@ -74,6 +96,7 @@ public void removeListener(PropertyChangeListener listener)
        newState = false;
      else
        newState = true;
+     if (tracer) System.out.println("   "+flagNames[i]+" "+newState);  
      switch (i)
       { case 0: tracer = newState; 		break;
 	case 1: roofOpen = newState; 		break;
@@ -93,7 +116,7 @@ public void removeListener(PropertyChangeListener listener)
 	case 15: lightsOn = newState;		break;
 	case 16: scope3Parked = newState;	break;
 	case 17: scopesParkedPowerOn= newState; break;
-  	default: System.out.println("OS.setAll("+flags+") too many flags");
+  	default: System.out.println("  number of flags greater than number of cases");
       }
 // *****************   readVoltage()  inserted here  ********************
     }
@@ -356,51 +379,52 @@ if (tracer)
    return acPowerAvailable;
    }
   public int getFlagCount()
-   {if (tracer) System.out.println("OS.getFlagCount()");
+   {if (tracer) System.out.println("OS.getFlagCount("+flagCount+")");
     return flagCount;
    }
   public boolean getScope1aPoweredUp()
-   {if (tracer) System.out.println("OS.getScope1aPoweredUp()");
+   {if (tracer) System.out.println("OS.getScope1aPoweredUp("+scope1aPoweredUp+")");
     return scope1aPoweredUp;
    }
   public boolean getScope1bPoweredUp()
-   {if (tracer) System.out.println("OS.getScope1bPoweredUp()");
+   {if (tracer) System.out.println("OS.getScope1bPoweredUp("+scope1bPoweredUp+")");
     return scope1bPoweredUp;
    }
   public boolean getScope2PoweredUp()
-   {if (tracer) System.out.println("OS.getScope2PoweredUp()");
+   {if (tracer) System.out.println("OS.getScope2PoweredUp("+scope2PoweredUp+")");
     return scope2PoweredUp;
    }
   public boolean getScope3PoweredUp()
-   {if (tracer) System.out.println("OS.getScope3PoweredUp()");
+   {if (tracer) System.out.println("OS.getScope3PoweredUp("+scope3PoweredUp+")");
     return scope3PoweredUp;
    }
   public boolean getComputer1PoweredUp()
-   {if (tracer) System.out.println("OS.getComputer1PoweredUp()");
+   {if (tracer) System.out.println("OS.getComputer1PoweredUp("+computer1PoweredUp+")");
     return computer1PoweredUp;
    }
+  @Deprecated(forRemoval = true) 
   public boolean getComputer2PoweredUp()  // catches old invokes
    {System.out.println("/nBad invoke of getComputer2PoweredUp(): processed");
     System.out.println("  change offending code to getNASPoweredUp()");
     return getNASPoweredUp();
    }
   public boolean getNASPoweredUp()
-   {if (tracer) System.out.println("OS.getNASPoweredUp()");
+   {if (tracer) System.out.println("OS.getNASPoweredUp("+NASPoweredUp+")");
     return NASPoweredUp;
    }
   public boolean getLightsOn()
-   {if (tracer) System.out.println("OS.getLightsOn()");
+   {if (tracer) System.out.println("OS.getLightsOn("+lightsOn+")");
     return lightsOn;
    }
   public boolean getScopesSafe()
-   {if (tracer) System.out.println("OS.gtScopesSafe()");
+   {if (tracer) System.out.println("OS.gtScopesSafe("+")");
     if (scope1Parked && scope2Parked && scope3Parked)
       return true;
     return false;
    }
 
   public boolean getScopesParkedPowerOn()
-  {if (tracer) System.out.println("OS.getScopesParkedPowerOn()");
+  {if (tracer) System.out.println("OS.getScopesParkedPowerOn("+scopesParkedPowerOn+")");
    return scopesParkedPowerOn;
   }
 
