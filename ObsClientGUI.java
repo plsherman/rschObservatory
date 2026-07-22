@@ -415,7 +415,7 @@ public class ObsClientGUI
   {if (tracer) System.out.println("OCG.sendUserStatusMessage ["+msgText+"]");
    errorMessage = msgText;       // compatibility with older versions of code
 
-   if (!errorMessage.equals(""))
+   if (!(msgText.equals(waitingMessage)|errorMessage.equals("")))
      System.out.println(errorMessage);   // print msg when run from console
 
    if (gui)
