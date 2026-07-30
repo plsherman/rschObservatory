@@ -33,10 +33,27 @@
 
 import java.net.*;
 import java.io.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class ObsServer
 {
- public static void main(String[] args) throws IOException
+ private static class WorkerThreadFactory implements ThreadFactory
+  {private final AtomicInteger numThreads = new AtomicInteger();
+
+   @Override
+   public Thread newThread(Runnable runnable)
+    {String name = String.format("ObsWorkerThread-%03d", numThreads.getAndAdd(1));
+     Thread thread = new Thread(runnable, name);
+     thread.setDaemon(true);
+     return thread;
+   }
+ }
+
+ public static void main(String[] args)
   {System.out.println("OS.main()");
    boolean tracer = true;
    int defaultPortNum = 8080
@@ -69,26 +86,26 @@ public class ObsServer
    os.setTracer(tracer);
    ObsControl oc = new ObsControl(os,tracer);
 
-   try
-    {ServerSocket serverSocket = new ServerSocket(portNum);
-     serverSocket.setSoTimeout(0);	// never close socket
+   try (ExecutorService executor = Executors.newCachedThreadPool(new WorkerThreadFactory());
+        ServerSocket serverSocket = new ServerSocket(portNum))
+    {serverSocket.setSoTimeout(0);    // never close socket
      while (true)
-      {try {new ObsWorkerThread(serverSocket.accept(),oc,os).start();}
-       catch (SocketException e)
+      {try
+       {ObsWorker worker = new ObsWorker(serverSocket.accept(), oc, os);
+         executor.execute(worker);
+       } catch (SocketException e)
         {System.out.println("OS.main() closed socket detected - shutdown");
          if (os.getNASPoweredUp())
-           oc.togglePowerNAS();	// controlled shutdown may take 60 seconds
-         System.exit(1); 
-        }
-      }   // while
-    }     // try
+           oc.togglePowerNAS(); // controlled shutdown may take 60 seconds
+         System.exit(1);
+       }  // catch
+     }    // while
+   }      // try-with-resources
    catch (IOException e)
     {System.out.println("  Could not listen on port " + portNum);
      System.exit(-1);
-    }
-
-  }
-
+   }
+ }
 
  private static void initializeVoltmeter()
   {try

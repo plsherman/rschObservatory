@@ -3,3 +3,8 @@
 *.out
 *.log
 *.txt
+out/
+
+# Ignore IntelliJ IDEA files
+.idea/
+*.iml
