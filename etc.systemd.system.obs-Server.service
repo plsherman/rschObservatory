@@ -1,0 +1,22 @@
+[Unit]
+Description=Observatory server
+After=network-online.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/bin/obsServer.sh
+Restart=always
+
+# wait nn seconds before trying a restart
+RestartSec=5s
+
+# try restart 3 times
+StartLimitBurst=3
+
+# maximum 3 restart attempts in 3 min.
+# assumes if pgm terminates from ping error, restart won't fix it 
+StartLimitIntervalSec=180s
+
+[Install]
+WantedBy=multi-user.target
