@@ -14,8 +14,8 @@
   pi4j I/O pin assignments and usage
 	NOTE: pin set low activates a relay, high deactivates it
 
-    PIN	USE
-        INPUTS      
+    PIN	USE		pin numbers are from old pi4j V1 mapping
+        INPUTS          actual GPIO numbers used in definitions
      1	roof open
      2	roof closed
      3	scope 1 parked (Abe)
@@ -70,6 +70,8 @@
   2026/06/10 PLS Updates for pi4j2 and Java 21
   2026/07/08 PLS NAS shutdown print stmts updates
 		 Java updates not done for deprecated "observable"
+  2026/10/27 PLS Fix bad (all) GPIO pins - mistranslation from pi4j V1
+		 All pi4j V1 program names for pins kept, defs changed
 **********************************************************************
  * 
  * 
@@ -206,19 +208,20 @@ private void setupIOPins()
 // setup output pins  PinStates: LOW HIGH
 // Pi pins control relays: low activates relay, high deactivates it
 // Ethernet needs always on ?relay control wire moved to NC relay connection or disconnected?
+// pin numbering (ie oPin00) is from pi4j V1 code that used the older wiring pi hardware interface
 
-  oPin00 = pi4j.create(relayCntlHigh.bcm(0).id("pin00"));  //open roof
-  oPin01 = pi4j.create(relayCntlHigh.bcm(1).id("pin01"));  //close roof
-  oPin02 = pi4j.create(relayCntlLow.bcm(2).id("pin02"));   //ethernet switch 
-  oPin03 = pi4j.create(relayCntlHigh.bcm(3).id("pin03"));  //backup drive
-  oPin04 = pi4j.create(relayCntlHigh.bcm(4).id("pin04"));  //Abe scope power 1,2
-  oPin05 = pi4j.create(relayCntlHigh.bcm(5).id("pin05"));  //Abe scope camera (2 - disabled)
-  oPin06 = pi4j.create(relayCntlHigh.bcm(6).id("pin06"));  //power: scope safe sensors
-  oPin07 = pi4j.create(relayCntlHigh.bcm(7).id("pin07"));  //Phil scope power
-  oPin13 = pi4j.create(relayCntlHigh.bcm(13).id("pin13")); //Scope3 power
-  oPin14 = pi4j.create(relayCntlHigh.bcm(14).id("pin14")); //lights power
-  oPin21 = pi4j.create(relayCntlHigh.bcm(21).id("pin21")); //inverter power button
-  oPin22 = pi4j.create(relayCntlHigh.bcm(22).id("pin22")); //available - future use
+  oPin00 = pi4j.create(relayCntlHigh.bcm(17).id("pin00"));  //open roof
+  oPin01 = pi4j.create(relayCntlHigh.bcm(18).id("pin01"));  //close roof
+  oPin02 = pi4j.create(relayCntlLow.bcm(27).id("pin02"));   //ethernet switch 
+  oPin03 = pi4j.create(relayCntlHigh.bcm(22).id("pin03"));  //backup drive
+  oPin04 = pi4j.create(relayCntlHigh.bcm(23).id("pin04"));  //Abe scope power 1,2
+  oPin05 = pi4j.create(relayCntlHigh.bcm(24).id("pin05"));  //Abe scope camera (2 - disabled)
+  oPin06 = pi4j.create(relayCntlHigh.bcm(25).id("pin06"));  //power: scope safe sensors
+  oPin07 = pi4j.create(relayCntlHigh.bcm(4).id("pin07"));  //Phil scope power
+  oPin13 = pi4j.create(relayCntlHigh.bcm(9).id("pin13")); //Scope3 power
+  oPin14 = pi4j.create(relayCntlHigh.bcm(11).id("pin14")); //lights power
+  oPin21 = pi4j.create(relayCntlHigh.bcm(5).id("pin21")); //inverter power button
+  oPin22 = pi4j.create(relayCntlHigh.bcm(6).id("pin22")); //available - future use
 
 
 
@@ -238,7 +241,7 @@ private void setupIOPins()
 //	.provider(mock)		// should allow running on non-pi hardware
 	;
 
-  iPin08  = pi4j.create(inHigh.bcm(8).id("iPin08"));  // roof open
+  iPin08  = pi4j.create(inHigh.bcm(2).id("iPin08"));  // roof open
   iPin08.addListener
    (e ->
     {if (e.state() == DigitalState.LOW)
@@ -251,7 +254,7 @@ private void setupIOPins()
     }
    );
 			
-  iPin09  = pi4j.create(inHigh.bcm(9).id("iPin09"));  //roof closed
+  iPin09  = pi4j.create(inHigh.bcm(3).id("iPin09"));  //roof closed
   iPin09.addListener
    (e ->
     {if (e.state() == DigitalState.LOW)
@@ -264,7 +267,7 @@ private void setupIOPins()
     }
    );
 
-  iPin11  = pi4j.create(inHigh.bcm(11).id("iPin11"));	//Abe scope parked
+  iPin11  = pi4j.create(inHigh.bcm(7).id("iPin11"));	//Abe scope parked
   iPin11.addListener
    (e ->
     {if (e.state() == DigitalState.LOW)
@@ -276,7 +279,7 @@ private void setupIOPins()
     }
    );
 
-  iPin23  = pi4j.create(inHigh.bcm(23).id("iPin23"));	//scope 3 parked
+  iPin23  = pi4j.create(inHigh.bcm(13).id("iPin23"));	//scope 3 parked
   iPin23.addListener
    (e ->
     {if (e.state() == DigitalState.LOW)
@@ -289,7 +292,7 @@ private void setupIOPins()
      }
    );
 	
-  iPin26  = pi4j.create(inHigh.bcm(26).id("iPin26"));	//Phil scope parked
+  iPin26  = pi4j.create(inHigh.bcm(12).id("iPin26"));	//Phil scope parked
   iPin26.addListener
    (e ->
     {if (!os.getRoofOpening() && !os.getRoofClosing()   // laser pointer sensor moves when
@@ -305,7 +308,7 @@ private void setupIOPins()
     }
    );
 
-  iPin27  = pi4j.create(inHigh.bcm(27).id("iPin27"));	//AC power on
+  iPin27  = pi4j.create(inHigh.bcm(16).id("iPin27"));	//AC power on
   iPin27.addListener
    (e ->
     {if (e.state() == DigitalState.LOW)
@@ -319,12 +322,13 @@ private void setupIOPins()
 
 /*
 //  these pins don't have any hardware to activate them - not defined
-  iPin10  = pi4j.create(inHigh.bcm(10).id("iPin10"));			
-  iPin12  = pi4j.create(inHigh.bcm(12).id("iPin12"));	//computer 2 powered on
-  iPin22  = pi4j.create(inHigh.bcm(22).id("iPin22"));	//outside door open
-  iPin24  = pi4j.create(inHigh.bcm(24).id("iPin24"));	//computer 1 powered on
-  iPin25  = pi4j.create(inHigh.bcm(25).id("iPin25"));	//control room door open
-  iPin28  = pi4j.create(inHigh.bcm(28).id("iPin28"));			
+  iPin10  = pi4j.create(inHigh.bcm(8).id("iPin10"));			
+  iPin12  = pi4j.create(inHigh.bcm(10).id("iPin12"));	//computer 2 powered on
+  iPin22  = pi4j.create(inHigh.bcm(6).id("iPin22"));	//outside door open
+  iPin24  = pi4j.create(inHigh.bcm(19).id("iPin24"));	//computer 1 powered on
+  iPin25  = pi4j.create(inHigh.bcm(26).id("iPin25"));	//control room door open
+  iPin28  = pi4j.create(inHigh.bcm(20).id("iPin28"));
+  iPin29  = pi4j.create(inHigh.bcm(21).id("iPin29"));
 */
 
 /*	// pi4j1 code - remove
