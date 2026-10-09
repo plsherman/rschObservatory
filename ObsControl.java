@@ -194,12 +194,12 @@ private void init()
 
 private void setupIOPins()
  {if (tracer) System.out.println("OC.setupIOPins()");
-  var DigitalOutput = DigitalOutput.newConfigBuilder(pi4j)
+  var relayControlHigh = DigitalOutput.newConfigBuilder(pi4j)
 	.initial(DigitalState.HIGH)
 	.shutdown(DigitalState.HIGH)
 //	.provider(mock)			// include to run on non-pi
 	;
-  var relayCntlLow = DigitalOutput.newConfigBuilder(pi4j)
+  var relayControlLow = DigitalOutput.newConfigBuilder(pi4j)
 	.initial(DigitalState.LOW)
 	.shutdown(DigitalState.LOW)
 //	.provider(mock)			// include to run on non-pi
@@ -210,18 +210,18 @@ private void setupIOPins()
 // Ethernet needs always on ?relay control wire moved to NC relay connection or disconnected?
 // pin numbering (ie oPin00) is from pi4j V1 code that used the older wiring pi hardware interface
 
-  oPin00 = pi4j.create(DigitalOutput.bcm(17).id("pin00"));  //open roof
-  oPin01 = pi4j.create(DigitalOutput.bcm(18).id("pin01"));  //close roof
-  oPin02 = pi4j.create(DigitalOutput.bcm(27).id("pin02"));   //ethernet switch 
-  oPin03 = pi4j.create(DigitalOutput.bcm(22).id("pin03"));  //backup drive
-  oPin04 = pi4j.create(DigitalOutput.bcm(23).id("pin04"));  //Abe scope power 1,2
-  oPin05 = pi4j.create(DigitalOutput.bcm(24).id("pin05"));  //Abe scope camera (2 - disabled)
-  oPin06 = pi4j.create(DigitalOutput.bcm(25).id("pin06"));  //power: scope safe sensors
-  oPin07 = pi4j.create(DigitalOutput.bcm(4).id("pin07"));  //Phil scope power
-  oPin13 = pi4j.create(DigitalOutput.bcm(9).id("pin13")); //Scope3 power
-  oPin14 = pi4j.create(DigitalOutput.bcm(11).id("pin14")); //lights power
-  oPin21 = pi4j.create(DigitalOutput.bcm(5).id("pin21")); //inverter power button
-  oPin22 = pi4j.create(DigitalOutput.bcm(6).id("pin22")); //available - future use
+  oPin00 = pi4j.create(relayControlHigh.bcm(17).id("pin00"));  //open roof
+  oPin01 = pi4j.create(relayControlHigh.bcm(18).id("pin01"));  //close roof
+  oPin02 = pi4j.create(relayControlLow.bcm(27).id("pin02"));   //ethernet switch 
+  oPin03 = pi4j.create(relayControlHigh.bcm(22).id("pin03"));  //backup drive
+  oPin04 = pi4j.create(relayControlHigh.bcm(23).id("pin04"));  //Abe scope power 1,2
+  oPin05 = pi4j.create(relayControlHigh.bcm(24).id("pin05"));  //Abe scope camera (2 - disabled)
+  oPin06 = pi4j.create(relayControlHigh.bcm(25).id("pin06"));  //power: scope safe sensors
+  oPin07 = pi4j.create(relayControlHigh.bcm(4).id("pin07"));  //Phil scope power
+  oPin13 = pi4j.create(relayControlHigh.bcm(9).id("pin13")); //Scope3 power
+  oPin14 = pi4j.create(relayControlHigh.bcm(11).id("pin14")); //lights power
+  oPin21 = pi4j.create(relayControlHigh.bcm(5).id("pin21")); //inverter power button
+  oPin22 = pi4j.create(relayControlHigh.bcm(6).id("pin22")); //available - future use
 
 
 
