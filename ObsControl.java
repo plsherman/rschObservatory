@@ -189,7 +189,9 @@ private void init()
    occr.start();
   }
  if (runOnPi) setupIOPins();
- refreshStatus();
+ if (tracer) System.out.println("\n\n\nIOpin setup complete\n\n\n");
+  refreshStatus();
+  if (tracer) System.out.println("\n\n\nInitial refreshStatus complete\n\n\n");
 }
 
 private void setupIOPins()
@@ -234,7 +236,7 @@ private void setupIOPins()
 	.pull(PullResistance.PULL_DOWN)
 	.debounce(50000L)
 //	.provider(mock)		// should allow running on non-pi hardware
-	;			
+	;
   var inOff  = DigitalInput.newConfigBuilder(pi4j)
 	.pull(PullResistance.OFF)
 	.debounce(50000L)
@@ -242,9 +244,11 @@ private void setupIOPins()
 	;
 
   iPin08  = pi4j.create(inHigh.bcm(2).id("iPin08"));  // roof open
+/*
   iPin08.addListener
    (e ->
-    {if (e.state() == DigitalState.LOW)
+    {if (tracer) System.out.println("\n\nOC roof open tripped");
+     if (e.state() == DigitalState.LOW)
        {stopRoof();
         os.setRoofOpen(true);
        }
@@ -253,11 +257,13 @@ private void setupIOPins()
        }
     }
    );
-			
+*/			
   iPin09  = pi4j.create(inHigh.bcm(3).id("iPin09"));  //roof closed
+/*
   iPin09.addListener
    (e ->
-    {if (e.state() == DigitalState.LOW)
+    {if (tracer) System.out.println("\n\nOC oof closed tripped");
+     if (e.state() == DigitalState.LOW)
        {stopRoof();
         os.setRoofClosed(true);
        }
@@ -266,11 +272,13 @@ private void setupIOPins()
        }
     }
    );
-
+*/
   iPin11  = pi4j.create(inHigh.bcm(7).id("iPin11"));	//Abe scope parked
+/*
   iPin11.addListener
    (e ->
-    {if (e.state() == DigitalState.LOW)
+    {if (tracer) System.out.println("\n\nOC abe scope parked tripped");
+     if (e.state() == DigitalState.LOW)
        {os.setScope1Parked(true);
        }
       else
@@ -278,8 +286,9 @@ private void setupIOPins()
        }
     }
    );
-
+*/
   iPin23  = pi4j.create(inHigh.bcm(13).id("iPin23"));	//scope 3 parked
+/*
   iPin23.addListener
    (e ->
     {if (e.state() == DigitalState.LOW)
@@ -291,11 +300,13 @@ private void setupIOPins()
       os.setScope3Parked(true);					// not present: force true
      }
    );
-	
+*/
   iPin26  = pi4j.create(inHigh.bcm(12).id("iPin26"));	//Phil scope parked
+/*
   iPin26.addListener
    (e ->
-    {if (!os.getRoofOpening() && !os.getRoofClosing()   // laser pointer sensor moves when
+    {if (tracer) System.out.println("\n\nOC Phil scope parked tripped");
+     if (!os.getRoofOpening() && !os.getRoofClosing()   // laser pointer sensor moves when
 				&& !os.getOverrideScopesParked()  // roof moving - sensor
 				&& os.getScopesParkedPowerOn())  // valid when these met
       {if (e.state() == DigitalState.LOW)
@@ -307,8 +318,9 @@ private void setupIOPins()
       }
     }
    );
-
+*/
   iPin27  = pi4j.create(inHigh.bcm(16).id("iPin27"));	//AC power on
+/*
   iPin27.addListener
    (e ->
     {if (e.state() == DigitalState.LOW)
@@ -319,7 +331,7 @@ private void setupIOPins()
        }
     }
    );
-
+*/
 /*
 //  these pins don't have any hardware to activate them - not defined
   iPin10  = pi4j.create(inHigh.bcm(8).id("iPin10"));			
@@ -393,9 +405,6 @@ private void setupIOPins()
 //  iPin28.addListener(pinListener);
 //  iPin28.setDebounce(debounceDelay);
 */
-
-  refreshStatus();
-
  }
 
 public void refreshStatus()

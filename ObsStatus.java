@@ -195,8 +195,9 @@ public void removeListener(PropertyChangeListener listener)
    newStatus = getAll();
 // diagnostic code start **************************************
 if (tracer)
- {System.out.println("   old status: "+oldStatus);
-  System.out.println("   new status: "+newStatus);
+ {System.out.println("OS.propertyChange   old status: "+oldStatus);
+  System.out.println("                    new status: "+newStatus);
+  System.out.println("                                0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8\n");
  }
 // diagnostic code end   **************************************   
    if (oldStatus.equals(newStatus))
@@ -205,7 +206,6 @@ if (tracer)
     {saveStatus = oldStatus;
      oldStatus = newStatus;
      obsStatus.firePropertyChange(flagsName,saveStatus,newStatus);
-     if (tracer) System.out.println("    property change fired: "+newStatus);
     }
   }
 

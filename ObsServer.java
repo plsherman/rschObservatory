@@ -72,6 +72,7 @@ public class ObsServer
    ObsStatus os = new ObsStatus();
    os.setTracer(tracer);
    ObsControl oc = new ObsControl(os,tracer);
+   if (tracer) System.out.println("\n\n\nObsControl setup completed\n\n\n\n");
    ObsServerMonitor obsServerMonitor = new ObsServerMonitor(os,tracer);
    obsServerMonitor.start();
 

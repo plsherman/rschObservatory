@@ -100,8 +100,8 @@ public class ObsWorkerThread extends Thread implements PropertyChangeListener
       socket.setSoTimeout(0);                   // allow infinite wait
       while (continueProcessing)
        {try {inputLine = in.readLine();}
-        catch (SocketTimeoutException e)
-         {}
+        catch (SocketException e)		// remote pgm disconnected
+         {inputLine = "quit";}
         if (inputLine == null)                  // remote pgm disconnected
           break;
         if (inputLine.equals("quit"))
